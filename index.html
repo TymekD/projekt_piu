@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Study Planner</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="brand">
+        <div class="brand__logo" aria-hidden="true">📚</div>
+        <div>
+          <h1 class="brand__title">Study Planner</h1>
+          <p class="brand__subtitle">Tasks, deadlines, and progress — all in one place.</p>
+        </div>
+      </div>
+
+      <div class="topbar__actions">
+        <button id="btnTheme" class="btn btn--ghost" type="button" aria-label="Toggle theme">
+          🌙 <span class="hide-sm">Theme</span>
+        </button>
+        <button id="btnLayout" class="btn btn--ghost" type="button" aria-label="Toggle layout">
+          ⬛ <span class="hide-sm">Layout</span>
+        </button>
+        <button id="btnAdd" class="btn btn--primary" type="button">
+          ➕ Add task
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Stats -->
+    <section class="card stats" aria-label="Stats">
+      <div class="stats__row">
+        <div class="stats__text">
+          <div class="stats__headline">
+            <span id="statsDone">0</span>/<span id="statsTotal">0</span> done
+            <span class="muted">·</span>
+            <span id="statsPct">0%</span>
+          </div>
+          <div class="stats__sub muted" id="statsSub">No tasks yet. Add your first one.</div>
+        </div>
+
+        <div class="stats__quick">
+          <button id="btnToday" class="btn btn--ghost" type="button">📅 Today</button>
+          <button id="btnClearToday" class="btn btn--ghost" type="button" disabled>✖ Clear</button>
+        </div>
+      </div>
+
+      <div class="progress" aria-label="Progress bar">
+        <div id="progressBar" class="progress__bar" style="width: 0%"></div>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="controls" aria-label="Filters and search">
+      <div class="controls__row">
+        <label class="field field--grow">
+          <span class="field__label">Search</span>
+          <input id="qSearch" class="input" type="search" placeholder="Search by title or tag..." autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Status</span>
+          <select id="qStatus" class="select">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="done">Done</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Tag</span>
+          <input id="qTag" class="input" type="text" placeholder="e.g. math" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Sort</span>
+          <select id="qSort" class="select">
+            <option value="date">Due date</option>
+            <option value="priority">Priority</option>
+            <option value="created">Created</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- List -->
+    <section class="listSection" aria-label="Task list">
+      <div class="listHeader">
+        <h2 class="h2">Your tasks</h2>
+        <div id="resultMeta" class="muted"></div>
+      </div>
+
+      <div id="list" class="taskList" data-layout="grid"></div>
+
+      <div id="empty" class="emptyState" hidden>
+        <div class="emptyState__icon" aria-hidden="true">🗂️</div>
+        <h3 class="emptyState__title">No tasks match your filters</h3>
+        <p class="emptyState__text muted">Try clearing search/tag filters or switch status to “All”.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal__header">
+        <h2 id="modalTitle" class="h2">Add task</h2>
+        <button id="btnCloseModal" class="btn btn--ghost" type="button" aria-label="Close modal">✖</button>
+      </div>
+
+      <form id="taskForm" class="modal__body">
+        <input type="hidden" id="taskId" />
+
+        <label class="field">
+          <span class="field__label">Title <span class="req">*</span></span>
+          <input id="title" class="input" type="text" required minlength="2" maxlength="80"
+                 placeholder="e.g. Learn CSS Grid" />
+          <span class="field__hint muted">2–80 characters</span>
+        </label>
+
+        <div class="modal__grid">
+          <label class="field">
+            <span class="field__label">Due date</span>
+            <input id="dueDate" class="input" type="date" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Priority</span>
+            <select id="priority" class="select">
+              <option value="low">Low</option>
+              <option value="mid" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Tag</span>
+            <input id="tag" class="input" type="text" maxlength="20" placeholder="e.g. web, math" />
+          </label>
+        </div>
+
+        <div class="modal__footer">
+          <button id="btnDeleteInModal" class="btn btn--danger" type="button" hidden>🗑 Delete</button>
+          <div class="spacer"></div>
+          <button class="btn btn--ghost" type="button" id="btnCancel">Cancel</button>
+          <button class="btn btn--primary" type="submit" id="btnSave">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast host -->
+  <div id="toasts" class="toastHost" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
