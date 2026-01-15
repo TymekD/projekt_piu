@@ -19,6 +19,9 @@
       </div>
 
       <div class="topbar__actions">
+        <button id="btnView" class="btn btn--ghost" type="button" aria-label="Toggle calendar view">
+          🗓 <span class="hide-sm">Calendar</span>
+        </button>
         <button id="btnTheme" class="btn btn--ghost" type="button" aria-label="Toggle theme">
           🌙 <span class="hide-sm">Theme</span>
         </button>
@@ -102,6 +105,29 @@
         <div class="emptyState__icon" aria-hidden="true">🗂️</div>
         <h3 class="emptyState__title">No tasks match your filters</h3>
         <p class="emptyState__text muted">Try clearing search/tag filters or switch status to “All”.</p>
+      </div>
+    </section>
+
+    <!-- Calendar -->
+    <section id="calendarSection" class="card calendarSection" aria-label="Calendar view" hidden>
+      <div class="calendarTop">
+        <h2 id="calMonthLabel" class="calendarTop__month">Month</h2>
+        <div class="calendarTop__actions" aria-label="Calendar controls">
+          <button id="calPrev" class="btn btn--ghost" type="button" aria-label="Previous month">‹</button>
+          <button id="calNext" class="btn btn--ghost" type="button" aria-label="Next month">›</button>
+          <button id="calAdd" class="btn btn--primary" type="button" aria-label="Add task">＋</button>
+        </div>
+      </div>
+
+      <div class="calendarWeekdays" aria-hidden="true">
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+      </div>
+
+      <div id="calGrid" class="calendarGrid" role="grid" aria-label="Month grid"></div>
+
+      <div id="calUndated" class="calendarUndated" hidden>
+        <div class="calendarUndated__title muted">Undated tasks</div>
+        <div id="calUndatedList" class="calendarUndated__list"></div>
       </div>
     </section>
   </main>

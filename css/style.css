@@ -347,6 +347,144 @@ a { color: inherit; }
 }
 .toast--danger { border-color: color-mix(in oklab, var(--danger) 45%, var(--border)); }
 
+/* ============ Calendar ============ */
+.calendarSection { padding: 14px; }
+
+.calendarTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.calendarTop__month {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: .2px;
+}
+.calendarTop__actions { display: flex; gap: 8px; align-items: center; }
+.calendarTop__actions .btn { padding: 8px 10px; border-radius: 999px; min-width: 44px; }
+
+.calendarWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  overflow: hidden;
+}
+.calendarWeekdays > div {
+  padding: 10px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  background: color-mix(in oklab, var(--card) 92%, transparent);
+  border-right: 1px solid var(--border);
+}
+.calendarWeekdays > div:last-child { border-right: 0; }
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 110px;
+  border: 1px solid var(--border);
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
+}
+
+.calCell {
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  min-width: 0;
+  background: color-mix(in oklab, var(--card) 94%, transparent);
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+.calCell:nth-child(7n) { border-right: 0; }
+
+.calCell--otherMonth {
+  opacity: .55;
+  background: color-mix(in oklab, var(--card) 90%, transparent);
+}
+
+.calDateRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.calDate {
+  font-weight: 700;
+  font-size: 13px;
+}
+.calDate--today {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 20%, var(--card));
+  border: 1px solid color-mix(in oklab, var(--primary) 40%, var(--border));
+}
+
+.calChips {
+  display: grid;
+  gap: 6px;
+}
+
+.calChip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card) 82%, var(--primary) 12%);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.15;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.calChip:hover { background: color-mix(in oklab, var(--card) 70%, var(--primary) 18%); }
+.calChip:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.calChip--high {
+  background: color-mix(in oklab, var(--card) 80%, var(--danger) 16%);
+  border-color: color-mix(in oklab, var(--danger) 35%, var(--border));
+}
+.calChip--low { opacity: .9; }
+.calChip--done { opacity: .55; text-decoration: line-through; }
+
+.calMore {
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+}
+
+.calendarUndated {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.calendarUndated__title { font-size: 12px; margin-bottom: 8px; }
+.calendarUndated__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .calendarGrid { grid-auto-rows: 92px; }
+  .calendarTop__month { font-size: 16px; }
+}
+
 /* ============ Responsive tweaks ============ */
 @media (min-width: 720px) {
   .hide-sm { display: inline; }
