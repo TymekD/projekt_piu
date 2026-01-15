@@ -15,6 +15,8 @@ export const state = {
   items: [],
   settings: { ...defaultSettings },
   ui: {
+    view: "list",     // list | calendar
+    calYM: "",        // YYYY-MM (current month shown in calendar)
     search: "",
     status: "all",    // all | active | done
     tag: "",
@@ -28,6 +30,27 @@ export function initState() {
   const s = loadSettings();
   state.settings = { ...defaultSettings, ...(s ?? {}) };
   state.ui.sort = state.settings.sort || "date";
+
+  // calendar month defaults to current month
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  state.ui.calYM = `${yyyy}-${mm}`;
+}
+
+export function setView(view) {
+  state.ui.view = view === "calendar" ? "calendar" : "list";
+}
+
+export function shiftCalendarMonth(delta) {
+  const [yStr, mStr] = (state.ui.calYM || "").split("-");
+  const y = Number(yStr);
+  const m0 = Number(mStr) - 1;
+  const base = (Number.isFinite(y) && Number.isFinite(m0)) ? new Date(y, m0, 1) : new Date();
+  base.setMonth(base.getMonth() + (delta || 0));
+  const yyyy = base.getFullYear();
+  const mm = String(base.getMonth() + 1).padStart(2, "0");
+  state.ui.calYM = `${yyyy}-${mm}`;
 }
 
 /* ---------- Items ---------- */

@@ -30,10 +30,129 @@ export function applyLayout() {
   list.dataset.layout = state.settings.layout;
 }
 
+export function renderView() {
+  const listSection = document.querySelector(".listSection");
+  const calSection = document.querySelector("#calendarSection");
+  if (!listSection || !calSection) return;
+
+  const isCal = state.ui.view === "calendar";
+  calSection.hidden = !isCal;
+  listSection.hidden = isCal;
+}
+
 export function renderAll() {
   renderStats();
   renderList();
   renderMeta();
+  renderView();
+  renderCalendar();
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function toYMD(d) {
+  const yyyy = d.getFullYear();
+  const mm = pad2(d.getMonth() + 1);
+  const dd = pad2(d.getDate());
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function startOfGrid(firstOfMonth) {
+  // JS getDay(): Sun=0..Sat=6 ; we want Mon=0..Sun=6
+  const dowMon0 = (firstOfMonth.getDay() + 6) % 7;
+  const start = new Date(firstOfMonth);
+  start.setDate(firstOfMonth.getDate() - dowMon0);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+export function renderCalendar() {
+  const gridEl = document.querySelector("#calGrid");
+  const labelEl = document.querySelector("#calMonthLabel");
+  const undatedWrap = document.querySelector("#calUndated");
+  const undatedList = document.querySelector("#calUndatedList");
+  if (!gridEl || !labelEl) return;
+
+  const ym = state.ui.calYM || "";
+  const [yStr, mStr] = ym.split("-");
+  const y = Number(yStr);
+  const m0 = Number(mStr) - 1;
+  const first = (Number.isFinite(y) && Number.isFinite(m0)) ? new Date(y, m0, 1) : new Date();
+
+  labelEl.textContent = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+
+  const { items, todayStr } = getFilteredSortedItems();
+
+  // Group tasks by due date
+  const byDate = new Map();
+  const undated = [];
+  for (const t of items) {
+    if (!t.dueDate) { undated.push(t); continue; }
+    if (!byDate.has(t.dueDate)) byDate.set(t.dueDate, []);
+    byDate.get(t.dueDate).push(t);
+  }
+
+  // Build 6-week grid (42 cells)
+  const start = startOfGrid(first);
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const ymd = toYMD(d);
+
+    const otherMonth = d.getMonth() !== first.getMonth();
+    const tasks = byDate.get(ymd) || [];
+
+    const dateClass = ymd === todayStr ? "calDate calDate--today" : "calDate";
+    const cellClass = otherMonth ? "calCell calCell--otherMonth" : "calCell";
+
+    const chips = [];
+    const max = 3;
+    for (let j = 0; j < Math.min(max, tasks.length); j++) {
+      const t = tasks[j];
+      const prioClass = t.priority === "high" ? "calChip--high"
+        : t.priority === "low" ? "calChip--low"
+        : "";
+      const doneClass = t.done ? "calChip--done" : "";
+      chips.push(
+        `<button class="calChip ${prioClass} ${doneClass}" type="button" title="Edit task"
+                 data-cal-id="${escapeHtml(t.id)}">${escapeHtml(t.title)}</button>`
+      );
+    }
+    if (tasks.length > max) {
+      chips.push(`<div class="calChip calMore" aria-hidden="true">+${tasks.length - max} more</div>`);
+    }
+
+    cells.push(`
+      <div class="${cellClass}" role="gridcell" data-date="${ymd}">
+        <div class="calDateRow">
+          <div class="${dateClass}">${escapeHtml(d.getDate())}</div>
+        </div>
+        <div class="calChips">
+          ${chips.join("")}
+        </div>
+      </div>
+    `);
+  }
+
+  gridEl.innerHTML = cells.join("");
+
+  // Undated
+  if (undatedWrap && undatedList) {
+    undatedWrap.hidden = undated.length === 0;
+    if (undated.length === 0) {
+      undatedList.innerHTML = "";
+    } else {
+      undatedList.innerHTML = undated.map(t => {
+        const prioClass = t.priority === "high" ? "calChip--high"
+          : t.priority === "low" ? "calChip--low"
+          : "";
+        const doneClass = t.done ? "calChip--done" : "";
+        return `<button class="calChip ${prioClass} ${doneClass}" type="button" title="Edit task"
+                        data-cal-id="${escapeHtml(t.id)}">${escapeHtml(t.title)}</button>`;
+      }).join("");
+    }
+  }
 }
 
 export function renderStats() {

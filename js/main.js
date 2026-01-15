@@ -1,12 +1,12 @@
 import {
   state, initState,
   addTask, updateTask, deleteTask, toggleDone,
-  setTheme, setLayout, setSort, setUI,
+  setTheme, setLayout, setSort, setUI, setView, shiftCalendarMonth,
   getFilteredSortedItems
 } from "./state.js";
 
 import {
-  applyTheme, applyLayout, renderAll, renderList, renderMeta, renderStats,
+  applyTheme, applyLayout, renderAll, renderList, renderMeta, renderStats, renderView, renderCalendar,
   openModal, closeModal, toast, animateRemoveTaskCard
 } from "./ui.js";
 
@@ -23,10 +23,17 @@ renderAll();
 /* -------------------- DOM references -------------------- */
 const listEl = document.querySelector("#list");
 const btnAdd = document.querySelector("#btnAdd");
+const btnView = document.querySelector("#btnView");
 const btnTheme = document.querySelector("#btnTheme");
 const btnLayout = document.querySelector("#btnLayout");
 const btnToday = document.querySelector("#btnToday");
 const btnClearToday = document.querySelector("#btnClearToday");
+
+const calSection = document.querySelector("#calendarSection");
+const calGrid = document.querySelector("#calGrid");
+const calPrev = document.querySelector("#calPrev");
+const calNext = document.querySelector("#calNext");
+const calAdd = document.querySelector("#calAdd");
 
 const qSearch = document.querySelector("#qSearch");
 const qStatus = document.querySelector("#qStatus");
@@ -46,6 +53,18 @@ function findTaskById(id) {
 /* -------------------- Toolbar actions -------------------- */
 btnAdd.addEventListener("click", () => {
   openModal({ mode: "add", task: null });
+});
+
+btnView.addEventListener("click", () => {
+  const next = state.ui.view === "calendar" ? "list" : "calendar";
+  setView(next);
+  renderView();
+  // update button label
+  btnView.innerHTML = next === "calendar"
+    ? "📃 <span class=\"hide-sm\">List</span>"
+    : "🗓 <span class=\"hide-sm\">Calendar</span>";
+  // ensure calendar is fresh when opened
+  if (next === "calendar") renderCalendar();
 });
 
 btnTheme.addEventListener("click", () => {
@@ -74,29 +93,45 @@ btnClearToday.addEventListener("click", () => {
   setUI({ todayOnly: false });
   renderMeta();
   renderList();
+  renderCalendar();
   toast("Today filter cleared");
   btnClearToday.disabled = true;
+});
+
+/* -------------------- Calendar controls -------------------- */
+calPrev.addEventListener("click", () => {
+  shiftCalendarMonth(-1);
+  renderCalendar();
+});
+
+calNext.addEventListener("click", () => {
+  shiftCalendarMonth(1);
+  renderCalendar();
+});
+
+calAdd.addEventListener("click", () => {
+  openModal({ mode: "add", task: null });
 });
 
 /* -------------------- Filters -------------------- */
 qSearch.addEventListener("input", () => {
   setUI({ search: qSearch.value });
-  renderMeta(); renderList();
+  renderMeta(); renderList(); renderCalendar();
 });
 
 qStatus.addEventListener("change", () => {
   setUI({ status: qStatus.value });
-  renderMeta(); renderList();
+  renderMeta(); renderList(); renderCalendar();
 });
 
 qTag.addEventListener("input", () => {
   setUI({ tag: qTag.value });
-  renderMeta(); renderList();
+  renderMeta(); renderList(); renderCalendar();
 });
 
 qSort.addEventListener("change", () => {
   setSort(qSort.value);
-  renderMeta(); renderList();
+  renderMeta(); renderList(); renderCalendar();
   toast(`Sorted by ${qSort.options[qSort.selectedIndex].text.toLowerCase()}`);
 });
 
@@ -115,6 +150,7 @@ listEl.addEventListener("click", (e) => {
     renderStats();
     renderMeta();
     renderList();
+    renderCalendar();
     return;
   }
 
@@ -132,8 +168,36 @@ listEl.addEventListener("click", (e) => {
       renderStats();
       renderMeta();
       renderList();
+      renderCalendar();
       toast("Task deleted", "danger");
     });
+  }
+});
+
+/* -------------------- Calendar actions (event delegation) -------------------- */
+calGrid.addEventListener("click", (e) => {
+  // Edit existing task from chip
+  const chip = e.target.closest("[data-cal-id]");
+  if (chip) {
+    const id = chip.dataset.calId;
+    const task = findTaskById(id);
+    if (task) {
+      openModal({ mode: "edit", task });
+      delInModal.dataset.id = id;
+    }
+    return;
+  }
+
+  // Quick-add: click empty cell to add with pre-filled due date
+  const cell = e.target.closest(".calCell");
+  const dateStr = cell?.dataset?.date;
+  if (dateStr) {
+    openModal({ mode: "add", task: null });
+    // Set due date after modal opens
+    setTimeout(() => {
+      const due = document.querySelector("#dueDate");
+      if (due) due.value = dateStr;
+    }, 0);
   }
 });
 
@@ -150,12 +214,12 @@ delInModal.addEventListener("click", () => {
   if (card) {
     animateRemoveTaskCard(card, () => {
       deleteTask(id);
-      renderStats(); renderMeta(); renderList();
+      renderStats(); renderMeta(); renderList(); renderCalendar();
       toast("Task deleted", "danger");
     });
   } else {
     deleteTask(id);
-    renderStats(); renderMeta(); renderList();
+    renderStats(); renderMeta(); renderList(); renderCalendar();
     toast("Task deleted", "danger");
   }
 });
@@ -177,12 +241,12 @@ form.addEventListener("submit", (e) => {
   if (!id) {
     addTask({ title, dueDate, priority, tag });
     closeModal();
-    renderStats(); renderMeta(); renderList();
+    renderStats(); renderMeta(); renderList(); renderCalendar();
     toast("Task added");
   } else {
     updateTask(id, { title, dueDate, priority, tag });
     closeModal();
-    renderStats(); renderMeta(); renderList();
+    renderStats(); renderMeta(); renderList(); renderCalendar();
     toast("Changes saved");
   }
 });
@@ -200,4 +264,11 @@ form.addEventListener("submit", (e) => {
 
   // Today filter button state
   btnClearToday.disabled = !state.ui.todayOnly;
+
+  // View button label + initial section visibility
+  btnView.innerHTML = state.ui.view === "calendar"
+    ? "📃 <span class=\"hide-sm\">List</span>"
+    : "🗓 <span class=\"hide-sm\">Calendar</span>";
+  renderView();
+  renderCalendar();
 })();
