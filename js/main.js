@@ -6,7 +6,7 @@ import {
 
 import {
   applyTheme, applyLayout,
-  renderStats, renderMeta, renderList, renderView, renderCalendar,
+  renderStats, renderMeta, renderTags, renderList, renderView, renderCalendar,
   openModal, closeModal, toast, animateRemove
 } from "./ui.js";
 
@@ -17,7 +17,7 @@ applyTheme();
 applyLayout();
 
 /* ---------- render helpers ---------- */
-const refresh = () => { renderStats(); renderMeta(); renderList(); renderCalendar(); };
+const refresh = () => { renderStats(); renderMeta(); renderTags(); renderList(); renderCalendar(); };
 const refreshView = () => { renderView(); if (state.ui.view === "calendar") renderCalendar(); };
 
 /* ---------- cache DOM ---------- */
@@ -36,7 +36,7 @@ const calendarAddBtn = el("calendarAddBtn");
 
 const searchInput = el("searchInput");
 const statusSelect = el("statusSelect");
-const tagFilterInput = el("tagFilterInput");
+const tagFilterSelect = el("tagFilterSelect");
 const sortSelect = el("sortSelect");
 
 const taskList = el("taskList");
@@ -60,7 +60,6 @@ const setViewBtnLabel = () => {
 sortSelect.value = state.ui.sort;
 statusSelect.value = state.ui.status;
 searchInput.value = state.ui.search;
-tagFilterInput.value = state.ui.tag;
 clearTodayBtn.disabled = !state.ui.todayOnly;
 setViewBtnLabel();
 refresh();
@@ -155,7 +154,7 @@ nextMonthBtn.addEventListener("click", () => { shiftCalendarMonth(1); renderCale
 /* ---------- filters ---------- */
 searchInput.addEventListener("input", () => { setUI({ search: searchInput.value }); refresh(); });
 statusSelect.addEventListener("change", () => { setUI({ status: statusSelect.value }); refresh(); });
-tagFilterInput.addEventListener("input", () => { setUI({ tag: tagFilterInput.value }); refresh(); });
+if (tagFilterSelect) tagFilterSelect.addEventListener("change", () => { setUI({ tag: tagFilterSelect.value }); refresh(); });
 sortSelect.addEventListener("change", () => {
   setSort(sortSelect.value);
   refresh();

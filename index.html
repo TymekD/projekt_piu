@@ -76,7 +76,9 @@
 
         <label class="field">
           <span class="label">Tag</span>
-          <input id="tagFilterInput" class="input" type="text" placeholder="e.g. math" />
+          <select id="tagFilterSelect" class="select" aria-label="Filter by tag">
+            <option value="">All</option>
+          </select>
         </label>
 
         <label class="field">
@@ -181,7 +183,10 @@
 
           <label class="field">
             <span class="label">Tag</span>
-            <input id="tagInput" class="input" type="text" maxlength="20" placeholder="e.g. web, math" />
+            <div class="tagCombo">
+              <input id="tagInput" class="input" type="text" maxlength="20" placeholder="e.g. web, math" autocomplete="off" />
+              <div id="tagSuggest" class="tagSuggest" hidden></div>
+            </div>
           </label>
         </div>
 
@@ -194,6 +199,9 @@
       </form>
     </div>
   </div>
+
+  <!-- Tag suggestions (auto-filled from saved tasks) -->
+  <datalist id="tagOptions"></datalist>
 
   <!-- Toasts -->
   <div id="toastArea" class="toastArea" aria-live="polite" aria-atomic="true"></div>

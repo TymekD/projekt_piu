@@ -1,4 +1,4 @@
-import { state, getFilteredSortedItems, getStats } from "./state.js";
+import { state, getFilteredSortedItems, getStats, getAllTags } from "./state.js";
 
 const el = (id) => document.getElementById(id);
 
@@ -30,6 +30,7 @@ export function renderView(){
 export function renderAll(){
   renderStats();
   renderMeta();
+  renderTags();
   renderList();
   renderView();
   renderCalendar();
@@ -45,6 +46,121 @@ export function renderStats(){
     : done === total ? "Nice — everything is done." : "Keep going — you’re making progress.";
   el("progressFill").style.width = `${pct}%`;
 }
+
+
+export function renderTags(){
+  const tags = getAllTags();
+
+  // Filter dropdown
+  const sel = el("tagFilterSelect");
+  if (sel){
+    const current = (state.ui.tag || "").trim().toLowerCase();
+    const options = ['<option value="">All</option>']
+      .concat(tags.map(t => {
+        const v = t.toLowerCase();
+        const selected = v === current ? ' selected' : '';
+        return `<option value="${E(v)}"${selected}>#${E(t)}</option>`;
+      }));
+    sel.innerHTML = options.join("");
+  }
+
+  // Datalist for modal tag input
+  const dl = el("tagOptions");
+  if (dl){
+    dl.innerHTML = tags.map(t => `<option value="${E(t)}"></option>`).join("");
+  }
+}
+
+
+let _tagSuggestReady = false;
+
+function _hideTagSuggest(){
+  const box = el("tagSuggest");
+  if (box) box.hidden = true;
+}
+
+function _renderTagSuggest(){
+  const input = el("tagInput");
+  const box = el("tagSuggest");
+  if (!input || !box) return;
+
+  const tags = getAllTags();
+  const q = (input.value || "").trim().toLowerCase();
+
+  const shown = tags
+    .filter(t => !q || t.toLowerCase().includes(q))
+    .slice(0, 12);
+
+  if (!shown.length){
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+
+  // Simple highlight of match
+  const items = shown.map(t => {
+    const low = t.toLowerCase();
+    if (!q) return `<button type="button" class="tagSuggestItem" data-tag="${E(t)}">#${E(t)}</button>`;
+    const idx = low.indexOf(q);
+    if (idx === -1) return `<button type="button" class="tagSuggestItem" data-tag="${E(t)}">#${E(t)}</button>`;
+    const a = E(t.slice(0, idx));
+    const b = E(t.slice(idx, idx + q.length));
+    const c = E(t.slice(idx + q.length));
+    return `<button type="button" class="tagSuggestItem" data-tag="${E(t)}">#${a}<strong>${b}</strong>${c}</button>`;
+  });
+
+  box.innerHTML = items.join("");
+  box.hidden = false;
+}
+
+function setupTagSuggest(){
+  if (_tagSuggestReady) return;
+  const input = el("tagInput");
+  const box = el("tagSuggest");
+  if (!input || !box) return;
+
+  _tagSuggestReady = true;
+  let blurTimer = null;
+
+  const show = () => {
+    if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
+    _renderTagSuggest();
+  };
+
+  input.addEventListener("focus", show);
+  input.addEventListener("input", show);
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") _hideTagSuggest();
+  });
+
+  input.addEventListener("blur", () => {
+    // Delay so click on suggestion still works
+    blurTimer = setTimeout(_hideTagSuggest, 120);
+  });
+
+  box.addEventListener("mousedown", (e) => {
+    // Prevent input losing focus before click handler runs
+    e.preventDefault();
+  });
+
+  box.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-tag]");
+    if (!btn) return;
+    input.value = btn.dataset.tag || "";
+    _hideTagSuggest();
+    input.focus();
+  });
+
+  // Close on outside click (safer than relying only on blur)
+  document.addEventListener("click", (e) => {
+    if (!document.body.contains(box)) return;
+    if (e.target === input || box.contains(e.target)) return;
+    _hideTagSuggest();
+  });
+}
+
+
 
 export function renderMeta(){
   const { items } = getFilteredSortedItems();
@@ -170,6 +286,7 @@ export function animateRemove(card, onDone){
 }
 
 export function openModal(mode, task){
+  renderTags();
   el("modalTitle").textContent = mode === "edit" ? "Edit task" : "Add task";
   el("deleteBtn").hidden = mode !== "edit";
 
@@ -178,6 +295,8 @@ export function openModal(mode, task){
   el("dateInput").value = task?.dueDate || "";
   el("prioritySelect").value = task?.priority || "mid";
   el("tagInput").value = task?.tag || "";
+  setupTagSuggest();
+  _renderTagSuggest();
 
   el("modalBackdrop").hidden = false;
   document.body.style.overflow = "hidden";
@@ -189,6 +308,7 @@ export function openModal(mode, task){
 }
 
 export function closeModal(){
+  _hideTagSuggest();
   el("modalBackdrop").hidden = true;
   document.body.style.overflow = "";
 }

@@ -117,6 +117,18 @@ export function setUI(patch) {
 function persistItems() { saveItems(state.items); }
 function persistSettings() { saveSettings(state.settings); }
 
+
+export function getAllTags(){
+  // Unique, normalized tag list derived from current items.
+  const set = new Set();
+  for (const t of state.items){
+    const raw = (t.tag || "").trim();
+    if (!raw) continue;
+    set.add(raw);
+  }
+  return Array.from(set).sort((a,b) => a.localeCompare(b, undefined, { sensitivity:"base" }));
+}
+
 /* ---------- Derived data ---------- */
 export function getFilteredSortedItems() {
   const q = state.ui.search.trim().toLowerCase();
@@ -141,7 +153,7 @@ export function getFilteredSortedItems() {
   }
 
   if (tagQ) {
-    items = items.filter(t => (t.tag || "").toLowerCase().includes(tagQ));
+    items = items.filter(t => (t.tag || "").trim().toLowerCase() === tagQ);
   }
 
   if (status === "active") items = items.filter(t => !t.done);
