@@ -27,12 +27,10 @@ const themeBtn = el("themeBtn");
 const layoutBtn = el("layoutBtn");
 const addBtn = el("addBtn");
 
-const todayBtn = el("todayBtn");
-const clearTodayBtn = el("clearTodayBtn");
-
 const prevMonthBtn = el("prevMonthBtn");
 const nextMonthBtn = el("nextMonthBtn");
 const calendarAddBtn = el("calendarAddBtn");
+const trashDrop = el("trashDrop");
 
 const searchInput = el("searchInput");
 const statusSelect = el("statusSelect");
@@ -41,6 +39,8 @@ const sortSelect = el("sortSelect");
 
 const taskList = el("taskList");
 const calendarGrid = el("calendarGrid");
+const undatedBox = el("undatedBox");
+const undatedList = el("undatedList");
 
 const closeModalBtn = el("closeModalBtn");
 const cancelBtn = el("cancelBtn");
@@ -60,7 +60,6 @@ const setViewBtnLabel = () => {
 sortSelect.value = state.ui.sort;
 statusSelect.value = state.ui.status;
 searchInput.value = state.ui.search;
-clearTodayBtn.disabled = !state.ui.todayOnly;
 setViewBtnLabel();
 refresh();
 refreshView();
@@ -85,10 +84,8 @@ function flipView(nextView){
   isFlipping = true;
   viewBtn.disabled = true;
 
-  // Read duration from CSS variable so JS stays in sync.
   const dur = parseMs(getComputedStyle(document.documentElement).getPropertyValue("--flipDur"));
 
-  // No wrapper? fall back to instant.
   if (!viewInner){
     setView(nextView);
     setViewBtnLabel();
@@ -98,15 +95,12 @@ function flipView(nextView){
     return;
   }
 
-  // With two-sided faces (front=list, back=calendar), we can rotate a full 180deg.
-  // Toggle the view immediately; CSS transition will animate the rotation.
   viewInner.classList.add("isTransitioning");
 
   setView(nextView);
   setViewBtnLabel();
   refreshView();
 
-  // Clean up after transition finishes.
   window.setTimeout(() => {
     viewInner.classList.remove("isTransitioning");
     viewBtn.disabled = false;
@@ -133,23 +127,18 @@ layoutBtn.addEventListener("click", () => {
   toast(next === "grid" ? "Grid layout" : "List layout");
 });
 
-todayBtn.addEventListener("click", () => {
-  setUI({ todayOnly: true });
-  clearTodayBtn.disabled = false;
-  refresh();
-  toast("Showing tasks due today");
-});
-
-clearTodayBtn.addEventListener("click", () => {
-  setUI({ todayOnly: false });
-  clearTodayBtn.disabled = true;
-  refresh();
-  toast("Today filter cleared");
-});
+/* ===================================================== */
+/* Month change with slide animation                     */
+/* ===================================================== */
+function shiftMonthAnimated(dir){
+  if (calendarGrid) calendarGrid.dataset.slide = dir > 0 ? "next" : "prev";
+  shiftCalendarMonth(dir);
+  renderCalendar();
+}
 
 /* ---------- calendar nav ---------- */
-prevMonthBtn.addEventListener("click", () => { shiftCalendarMonth(-1); renderCalendar(); });
-nextMonthBtn.addEventListener("click", () => { shiftCalendarMonth(1); renderCalendar(); });
+prevMonthBtn.addEventListener("click", () => shiftMonthAnimated(-1));
+nextMonthBtn.addEventListener("click", () => shiftMonthAnimated(1));
 
 /* ---------- filters ---------- */
 searchInput.addEventListener("input", () => { setUI({ search: searchInput.value }); refresh(); });
@@ -182,7 +171,7 @@ taskList.addEventListener("click", (e) => {
   }
 });
 
-/* ---------- calendar actions (delegation) ---------- */
+/* ---------- calendar click: edit / add ---------- */
 calendarGrid.addEventListener("click", (e) => {
   const chip = e.target.closest("[data-cal-id]");
   if (chip) return openModal("edit", findTask(chip.dataset.calId));
@@ -194,6 +183,204 @@ calendarGrid.addEventListener("click", (e) => {
   openModal("add");
   setTimeout(() => { el("dateInput").value = dateStr; }, 0);
 });
+
+/* ---------- undated click: edit ---------- */
+if (undatedList){
+  undatedList.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-cal-id]");
+    if (!chip) return;
+    openModal("edit", findTask(chip.dataset.calId));
+  });
+}
+
+/* ===================================================== */
+/* Drag & Drop: days <-> undated + trash + auto month     */
+/* ===================================================== */
+
+const DND_MIME = "text/x-planner-task-id";
+let draggingId = null;
+
+function getDragIdFromEvent(e){
+  const dt = e.dataTransfer;
+  if (!dt) return null;
+  return dt.getData(DND_MIME) || dt.getData("text/plain") || null;
+}
+
+function clearDragOver(){
+  document.querySelectorAll(".dayCell.dragOver").forEach(n => n.classList.remove("dragOver"));
+  undatedBox?.classList.remove("dragOver");
+  trashDrop?.classList.remove("dragOver");
+}
+
+function setTaskDate(id, dateStr){
+  const t = findTask(id);
+  if (!t) return;
+
+  const next = dateStr || "";
+  if ((t.dueDate || "") === next) return;
+
+  updateTask(id, { dueDate: next });
+  refresh();
+  toast(next ? `Moved to ${next}` : "Moved to undated");
+}
+
+function deleteTaskByDrop(id){
+  const t = findTask(id);
+  if (!t) return;
+  deleteTask(id);
+  refresh();
+  toast("Task deleted", true);
+}
+
+/* Start dragging from any chip (dated or undated) */
+function onDragStart(e){
+  const chip = e.target.closest("[data-drag-id]");
+  if (!chip) return;
+
+  draggingId = chip.dataset.dragId || "";
+  if (!draggingId) return;
+
+  e.dataTransfer.setData(DND_MIME, draggingId);
+  e.dataTransfer.setData("text/plain", draggingId);
+  e.dataTransfer.effectAllowed = "move";
+
+  chip.classList.add("isDragging");
+}
+
+function onDragEnd(){
+  draggingId = null;
+  document.querySelectorAll(".taskChip.isDragging").forEach(n => n.classList.remove("isDragging"));
+  clearDragOver();
+  stopAutoMonth();
+}
+
+/* ---------- Auto month switching while dragging ---------- */
+let autoMonthTimer = null;
+let lastAutoMonthAt = 0;
+let pendingDir = 0;
+
+function stopAutoMonth(){
+  if (autoMonthTimer){
+    clearTimeout(autoMonthTimer);
+    autoMonthTimer = null;
+  }
+  pendingDir = 0;
+}
+
+function scheduleAutoMonth(dir){
+  const now = Date.now();
+  if (now - lastAutoMonthAt < 650) return;
+  if (pendingDir === dir && autoMonthTimer) return;
+
+  stopAutoMonth();
+  pendingDir = dir;
+
+  autoMonthTimer = setTimeout(() => {
+    lastAutoMonthAt = Date.now();
+    shiftMonthAnimated(dir);
+    clearDragOver();
+    pendingDir = 0;
+    autoMonthTimer = null;
+  }, 520);
+}
+
+/* Drag over calendar: allow drop + highlight + edge auto month */
+function onDragOverCalendar(e){
+  const cell = e.target.closest(".dayCell");
+  if (!cell) return;
+
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+
+  document.querySelectorAll(".dayCell.dragOver").forEach(n => {
+    if (n !== cell) n.classList.remove("dragOver");
+  });
+  cell.classList.add("dragOver");
+
+  const rect = calendarGrid.getBoundingClientRect();
+  const edge = 26;
+  if (e.clientX < rect.left + edge) scheduleAutoMonth(-1);
+  else if (e.clientX > rect.right - edge) scheduleAutoMonth(1);
+  else stopAutoMonth();
+}
+
+function onDropCalendar(e){
+  const cell = e.target.closest(".dayCell");
+  const dateStr = cell?.dataset?.date;
+  if (!dateStr) return;
+
+  e.preventDefault();
+  const id = getDragIdFromEvent(e) || draggingId;
+  if (!id) return;
+
+  clearDragOver();
+  stopAutoMonth();
+  setTaskDate(id, dateStr);
+}
+
+/* Undated drop zone: make undated */
+function onDragOverUndated(e){
+  if (!undatedBox) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  undatedBox.classList.add("dragOver");
+}
+
+function onDropUndated(e){
+  if (!undatedBox) return;
+  e.preventDefault();
+  const id = getDragIdFromEvent(e) || draggingId;
+  if (!id) return;
+
+  clearDragOver();
+  stopAutoMonth();
+  setTaskDate(id, "");
+}
+
+/* Trash drop zone: delete */
+function onDragOverTrash(e){
+  if (!trashDrop) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  trashDrop.classList.add("dragOver");
+}
+
+function onDropTrash(e){
+  if (!trashDrop) return;
+  e.preventDefault();
+  const id = getDragIdFromEvent(e) || draggingId;
+  if (!id) return;
+
+  clearDragOver();
+  stopAutoMonth();
+  deleteTaskByDrop(id);
+}
+
+/* Bind DnD listeners */
+calendarGrid.addEventListener("dragstart", onDragStart);
+calendarGrid.addEventListener("dragend", onDragEnd);
+calendarGrid.addEventListener("dragover", onDragOverCalendar);
+calendarGrid.addEventListener("drop", onDropCalendar);
+
+/* Undated zone */
+if (undatedBox){
+  undatedBox.addEventListener("dragover", onDragOverUndated);
+  undatedBox.addEventListener("drop", onDropUndated);
+  undatedBox.addEventListener("dragleave", () => undatedBox.classList.remove("dragOver"));
+}
+
+/* Undated list is also draggable source */
+if (undatedList){
+  undatedList.addEventListener("dragstart", onDragStart);
+  undatedList.addEventListener("dragend", onDragEnd);
+}
+
+/* Trash zone */
+if (trashDrop){
+  trashDrop.addEventListener("dragover", onDragOverTrash);
+  trashDrop.addEventListener("drop", onDropTrash);
+  trashDrop.addEventListener("dragleave", () => trashDrop.classList.remove("dragOver"));
+}
 
 /* ---------- modal ---------- */
 closeModalBtn.addEventListener("click", closeModal);

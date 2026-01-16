@@ -31,6 +31,44 @@ body{
 .required{color:var(--danger)}
 .hideOnSmall{display:none}
 
+/* ---------------------------------- */
+/* Smooth theme transition (NEW)       */
+/* ---------------------------------- */
+@media (prefers-reduced-motion: no-preference){
+  /* Transition on properties that change via CSS variables */
+  body,
+  .appHeader,
+  .card,
+  .taskCard,
+  .btn,
+  .input,
+  .select,
+  .badge,
+  .dayCell,
+  .taskChip,
+  .modal,
+  .toast,
+  .progressBar,
+  .check,
+  .tagSuggest,
+  .tagSuggestItem{
+    transition:
+      background-color .28s ease,
+      color .28s ease,
+      border-color .28s ease,
+      box-shadow .28s ease,
+      filter .28s ease;
+  }
+
+  /* Also smooth the subtle header tint change */
+  .appHeader{
+    transition:
+      background-color .28s ease,
+      border-color .28s ease,
+      backdrop-filter .28s ease;
+  }
+}
+
 .page{
   width:min(1100px,calc(100% - 32px));
   margin:18px auto 44px;
@@ -338,4 +376,78 @@ html[data-theme="light"] .dayCell{background:rgba(17,24,39,.02)}
   margin-left: 8px;
   opacity: 0.65;
   font-size: 0.9em;
+}
+
+/* ---------- Dark dropdown options (ONLY what you asked earlier) ---------- */
+html[data-theme="dark"] select option{
+  background-color: #0b0d12; /* darker dropdown background */
+  color: #f3f6ff;            /* brighter option text */
+}
+
+/* ---------- Drag & Drop (Calendar) ---------- */
+.taskChip.isDragging{
+  opacity:.6;
+  transform:scale(.98);
+}
+
+.dayCell.dragOver{
+  outline:2px solid rgba(110,168,255,.55);
+  outline-offset:2px;
+  background:rgba(110,168,255,.08);
+}
+
+.undatedBox.dragOver{
+  outline:2px solid rgba(110,168,255,.55);
+  outline-offset:2px;
+  background:rgba(110,168,255,.06);
+}
+
+/* Undated hint */
+.undatedHint{
+  font-size:12px;
+  margin-top:4px;
+}
+
+/* Trash drop zone */
+.trashDrop{
+  width:42px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.03);
+  color:var(--text);
+  user-select:none;
+}
+
+.trashDrop.dragOver{
+  border-color:rgba(255,107,107,.55);
+  background:rgba(255,107,107,.12);
+}
+
+/* ---------- Calendar month slide animation (NEW) ---------- */
+.calendarGrid.calSlideNext{
+  animation: calSlideNext 700ms ease-out both;
+}
+.calendarGrid.calSlidePrev{
+  animation: calSlidePrev 700ms ease-out both;
+}
+
+@keyframes calSlideNext{
+  from{ transform:translateX(18px); opacity:.55; }
+  to{ transform:translateX(0); opacity:1; }
+}
+
+@keyframes calSlidePrev{
+  from{ transform:translateX(-18px); opacity:.55; }
+  to{ transform:translateX(0); opacity:1; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .calendarGrid.calSlideNext,
+  .calendarGrid.calSlidePrev{
+    animation:none;
+  }
 }

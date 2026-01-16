@@ -22,7 +22,6 @@ export function renderView(){
   const inner = el("viewInner");
   if (inner) inner.classList.toggle("isCalendar", isCal);
 
-  // Accessibility: mark the non-active face as hidden to screen readers.
   el("calendarView").setAttribute("aria-hidden", String(!isCal));
   el("taskSection").setAttribute("aria-hidden", String(isCal));
 }
@@ -47,11 +46,9 @@ export function renderStats(){
   el("progressFill").style.width = `${pct}%`;
 }
 
-
 export function renderTags(){
   const tags = getAllTags();
 
-  // Filter dropdown
   const sel = el("tagFilterSelect");
   if (sel){
     const current = (state.ui.tag || "").trim().toLowerCase();
@@ -64,13 +61,11 @@ export function renderTags(){
     sel.innerHTML = options.join("");
   }
 
-  // Datalist for modal tag input
   const dl = el("tagOptions");
   if (dl){
     dl.innerHTML = tags.map(t => `<option value="${E(t)}"></option>`).join("");
   }
 }
-
 
 let _tagSuggestReady = false;
 
@@ -97,7 +92,6 @@ function _renderTagSuggest(){
     return;
   }
 
-  // Simple highlight of match
   const items = shown.map(t => {
     const low = t.toLowerCase();
     if (!q) return `<button type="button" class="tagSuggestItem" data-tag="${E(t)}">#${E(t)}</button>`;
@@ -135,12 +129,10 @@ function setupTagSuggest(){
   });
 
   input.addEventListener("blur", () => {
-    // Delay so click on suggestion still works
     blurTimer = setTimeout(_hideTagSuggest, 120);
   });
 
   box.addEventListener("mousedown", (e) => {
-    // Prevent input losing focus before click handler runs
     e.preventDefault();
   });
 
@@ -152,15 +144,12 @@ function setupTagSuggest(){
     input.focus();
   });
 
-  // Close on outside click (safer than relying only on blur)
   document.addEventListener("click", (e) => {
     if (!document.body.contains(box)) return;
     if (e.target === input || box.contains(e.target)) return;
     _hideTagSuggest();
   });
 }
-
-
 
 export function renderMeta(){
   const { items } = getFilteredSortedItems();
@@ -203,8 +192,6 @@ export function renderList(){
       </article>
     `;
   }).join("");
-
-  el("clearTodayBtn").disabled = !state.ui.todayOnly;
 }
 
 function gridStart(firstOfMonth){
@@ -219,6 +206,17 @@ export function renderCalendar(){
   const grid = el("calendarGrid");
   const label = el("monthLabel");
   if (!grid || !label) return;
+
+  const slideDir = grid.dataset.slide || "";
+  if (slideDir){
+    grid.classList.remove("calSlideNext", "calSlidePrev");
+    void grid.offsetWidth;
+    grid.classList.add(slideDir === "next" ? "calSlideNext" : "calSlidePrev");
+    grid.addEventListener("animationend", () => {
+      grid.classList.remove("calSlideNext", "calSlidePrev");
+    }, { once:true });
+    delete grid.dataset.slide;
+  }
 
   const [yStr, mStr] = (state.ui.calYM || "").split("-");
   const y = Number(yStr);
@@ -250,7 +248,13 @@ export function renderCalendar(){
       const t = tasks[j];
       const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
       const dn = t.done ? "done" : "";
-      chips.push(`<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" title="Edit task">${E(t.title)}</button>`);
+      chips.push(
+        `<button class="taskChip ${pr} ${dn}" type="button"
+          draggable="true"
+          data-cal-id="${E(t.id)}"
+          data-drag-id="${E(t.id)}"
+          title="Edit task">${E(t.title)}</button>`
+      );
     }
     if (tasks.length > max) chips.push(`<div class="taskChip more">+${tasks.length-max} more</div>`);
 
@@ -266,12 +270,20 @@ export function renderCalendar(){
 
   const box = el("undatedBox");
   const list = el("undatedList");
+  const hint = el("undatedHint");
+
   if (box && list){
-    box.hidden = undated.length === 0;
+    box.hidden = false;
+    if (hint) hint.hidden = undated.length !== 0;
+
     list.innerHTML = undated.map(t => {
       const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
       const dn = t.done ? "done" : "";
-      return `<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" title="Edit task">${E(t.title)}</button>`;
+      return `<button class="taskChip ${pr} ${dn}" type="button"
+        draggable="true"
+        data-cal-id="${E(t.id)}"
+        data-drag-id="${E(t.id)}"
+        title="Edit task">${E(t.title)}</button>`;
     }).join("");
   }
 }
