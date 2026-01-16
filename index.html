@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Study Planner</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
@@ -90,6 +90,13 @@
       </div>
     </section>
 
+    <!-- Flip stage (List ⇄ Calendar) -->
+    <div class="flipStage" id="viewStage">
+      <div class="flipInner" id="viewInner">
+
+        <!-- Front face (List) -->
+        <div class="flipFace flipFront" id="viewFront">
+
     <!-- List -->
     <section class="taskSection" aria-label="Task list" id="taskSection">
       <div class="sectionTop">
@@ -106,8 +113,13 @@
       </div>
     </section>
 
+        </div>
+
+        <!-- Back face (Calendar) -->
+        <div class="flipFace flipBack" id="viewBack">
+
     <!-- Calendar -->
-    <section id="calendarView" class="card calendarCard" aria-label="Calendar view" hidden>
+    <section id="calendarView" class="card calendarCard" aria-label="Calendar view">
       <div class="calendarTop">
         <h2 id="monthLabel" class="calendarMonth">Month</h2>
         <div class="calendarButtons" aria-label="Calendar controls">
@@ -128,6 +140,11 @@
         <div id="undatedList" class="undatedList"></div>
       </div>
     </section>
+
+        </div>
+
+      </div>
+    </div>
   </main>
 
   <!-- Modal -->

@@ -19,8 +19,12 @@ export const applyLayout = () => (el("taskList").dataset.layout = state.settings
 
 export function renderView(){
   const isCal = state.ui.view === "calendar";
-  el("calendarView").hidden = !isCal;
-  el("taskSection").hidden = isCal;
+  const inner = el("viewInner");
+  if (inner) inner.classList.toggle("isCalendar", isCal);
+
+  // Accessibility: mark the non-active face as hidden to screen readers.
+  el("calendarView").setAttribute("aria-hidden", String(!isCal));
+  el("taskSection").setAttribute("aria-hidden", String(isCal));
 }
 
 export function renderAll(){

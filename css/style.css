@@ -38,6 +38,30 @@ body{
   gap:18px;
 }
 
+/* View flip (List ⇄ Calendar) */
+:root{ --flipDur:520ms; }
+.flipStage{ perspective:1200px; }
+.flipInner{
+  display:grid;
+  transform-style:preserve-3d;
+  will-change:transform;
+  transform:rotateY(0deg);
+  transition:transform var(--flipDur) ease-in-out;
+}
+.flipInner.isCalendar{ transform:rotateY(180deg); }
+.flipInner.isTransitioning{ pointer-events:none; }
+
+.flipFace{
+  grid-area:1/1;
+  backface-visibility:hidden;
+  transform-style:preserve-3d;
+}
+.flipFace.flipBack{ transform:rotateY(180deg); }
+
+@media (prefers-reduced-motion: reduce){
+  .flipInner{ transition:none; }
+}
+
 /* Header */
 .appHeader{
   position:sticky;top:0;z-index:10;

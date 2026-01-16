@@ -22,6 +22,7 @@ const refreshView = () => { renderView(); if (state.ui.view === "calendar") rend
 
 /* ---------- cache DOM ---------- */
 const viewBtn = el("viewBtn");
+const viewInner = el("viewInner");
 const themeBtn = el("themeBtn");
 const layoutBtn = el("layoutBtn");
 const addBtn = el("addBtn");
@@ -69,10 +70,54 @@ refreshView();
 addBtn.addEventListener("click", () => openModal("add"));
 calendarAddBtn.addEventListener("click", () => openModal("add"));
 
-viewBtn.addEventListener("click", () => {
-  setView(state.ui.view === "calendar" ? "list" : "calendar");
+let isFlipping = false;
+
+function parseMs(input){
+  const s = String(input || "").trim();
+  if (!s) return 520;
+  if (s.endsWith("ms")) return Number(s.slice(0, -2)) || 520;
+  if (s.endsWith("s")) return (Number(s.slice(0, -1)) || 0.52) * 1000;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 520;
+}
+
+function flipView(nextView){
+  if (isFlipping) return;
+  isFlipping = true;
+  viewBtn.disabled = true;
+
+  // Read duration from CSS variable so JS stays in sync.
+  const dur = parseMs(getComputedStyle(document.documentElement).getPropertyValue("--flipDur"));
+
+  // No wrapper? fall back to instant.
+  if (!viewInner){
+    setView(nextView);
+    setViewBtnLabel();
+    refreshView();
+    viewBtn.disabled = false;
+    isFlipping = false;
+    return;
+  }
+
+  // With two-sided faces (front=list, back=calendar), we can rotate a full 180deg.
+  // Toggle the view immediately; CSS transition will animate the rotation.
+  viewInner.classList.add("isTransitioning");
+
+  setView(nextView);
   setViewBtnLabel();
   refreshView();
+
+  // Clean up after transition finishes.
+  window.setTimeout(() => {
+    viewInner.classList.remove("isTransitioning");
+    viewBtn.disabled = false;
+    isFlipping = false;
+  }, dur + 30);
+}
+
+viewBtn.addEventListener("click", () => {
+  const next = state.ui.view === "calendar" ? "list" : "calendar";
+  flipView(next);
 });
 
 themeBtn.addEventListener("click", () => {
