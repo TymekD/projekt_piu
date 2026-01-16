@@ -1,274 +1,198 @@
 import {
   state, initState,
   addTask, updateTask, deleteTask, toggleDone,
-  setTheme, setLayout, setSort, setUI, setView, shiftCalendarMonth,
-  getFilteredSortedItems
+  setTheme, setLayout, setSort, setUI, setView, shiftCalendarMonth
 } from "./state.js";
 
 import {
-  applyTheme, applyLayout, renderAll, renderList, renderMeta, renderStats, renderView, renderCalendar,
-  openModal, closeModal, toast, animateRemoveTaskCard
+  applyTheme, applyLayout,
+  renderStats, renderMeta, renderList, renderView, renderCalendar,
+  openModal, closeModal, toast, animateRemove
 } from "./ui.js";
+
+const el = (id) => document.getElementById(id);
 
 initState();
 applyTheme();
 applyLayout();
 
-// Sync initial sort control
-document.querySelector("#qSort").value = state.ui.sort;
+/* ---------- render helpers ---------- */
+const refresh = () => { renderStats(); renderMeta(); renderList(); renderCalendar(); };
+const refreshView = () => { renderView(); if (state.ui.view === "calendar") renderCalendar(); };
 
-// Initial render
-renderAll();
+/* ---------- cache DOM ---------- */
+const viewBtn = el("viewBtn");
+const themeBtn = el("themeBtn");
+const layoutBtn = el("layoutBtn");
+const addBtn = el("addBtn");
 
-/* -------------------- DOM references -------------------- */
-const listEl = document.querySelector("#list");
-const btnAdd = document.querySelector("#btnAdd");
-const btnView = document.querySelector("#btnView");
-const btnTheme = document.querySelector("#btnTheme");
-const btnLayout = document.querySelector("#btnLayout");
-const btnToday = document.querySelector("#btnToday");
-const btnClearToday = document.querySelector("#btnClearToday");
+const todayBtn = el("todayBtn");
+const clearTodayBtn = el("clearTodayBtn");
 
-const calSection = document.querySelector("#calendarSection");
-const calGrid = document.querySelector("#calGrid");
-const calPrev = document.querySelector("#calPrev");
-const calNext = document.querySelector("#calNext");
-const calAdd = document.querySelector("#calAdd");
+const prevMonthBtn = el("prevMonthBtn");
+const nextMonthBtn = el("nextMonthBtn");
+const calendarAddBtn = el("calendarAddBtn");
 
-const qSearch = document.querySelector("#qSearch");
-const qStatus = document.querySelector("#qStatus");
-const qTag = document.querySelector("#qTag");
-const qSort = document.querySelector("#qSort");
+const searchInput = el("searchInput");
+const statusSelect = el("statusSelect");
+const tagFilterInput = el("tagFilterInput");
+const sortSelect = el("sortSelect");
 
-const modalClose = document.querySelector("#btnCloseModal");
-const btnCancel = document.querySelector("#btnCancel");
-const form = document.querySelector("#taskForm");
-const delInModal = document.querySelector("#btnDeleteInModal");
+const taskList = el("taskList");
+const calendarGrid = el("calendarGrid");
 
-/* -------------------- Helpers -------------------- */
-function findTaskById(id) {
-  return state.items.find(t => t.id === id) || null;
-}
+const closeModalBtn = el("closeModalBtn");
+const cancelBtn = el("cancelBtn");
+const deleteBtn = el("deleteBtn");
+const form = el("taskForm");
 
-/* -------------------- Toolbar actions -------------------- */
-btnAdd.addEventListener("click", () => {
-  openModal({ mode: "add", task: null });
+const findTask = (id) => state.items.find(t => t.id === id) || null;
+
+const setViewBtnLabel = () => {
+  const showCalendar = state.ui.view !== "calendar";
+  viewBtn.innerHTML = showCalendar
+    ? '🗓 <span class="hideOnSmall">Calendar</span>'
+    : '📃 <span class="hideOnSmall">List</span>';
+};
+
+/* ---------- initial UI sync ---------- */
+sortSelect.value = state.ui.sort;
+statusSelect.value = state.ui.status;
+searchInput.value = state.ui.search;
+tagFilterInput.value = state.ui.tag;
+clearTodayBtn.disabled = !state.ui.todayOnly;
+setViewBtnLabel();
+refresh();
+refreshView();
+
+/* ---------- top buttons ---------- */
+addBtn.addEventListener("click", () => openModal("add"));
+calendarAddBtn.addEventListener("click", () => openModal("add"));
+
+viewBtn.addEventListener("click", () => {
+  setView(state.ui.view === "calendar" ? "list" : "calendar");
+  setViewBtnLabel();
+  refreshView();
 });
 
-btnView.addEventListener("click", () => {
-  const next = state.ui.view === "calendar" ? "list" : "calendar";
-  setView(next);
-  renderView();
-  // update button label
-  btnView.innerHTML = next === "calendar"
-    ? "📃 <span class=\"hide-sm\">List</span>"
-    : "🗓 <span class=\"hide-sm\">Calendar</span>";
-  // ensure calendar is fresh when opened
-  if (next === "calendar") renderCalendar();
-});
-
-btnTheme.addEventListener("click", () => {
+themeBtn.addEventListener("click", () => {
   const next = state.settings.theme === "light" ? "dark" : "light";
   setTheme(next);
   applyTheme();
   toast(next === "dark" ? "Dark theme enabled" : "Light theme enabled");
 });
 
-btnLayout.addEventListener("click", () => {
+layoutBtn.addEventListener("click", () => {
   const next = state.settings.layout === "grid" ? "list" : "grid";
   setLayout(next);
   applyLayout();
   toast(next === "grid" ? "Grid layout" : "List layout");
 });
 
-btnToday.addEventListener("click", () => {
+todayBtn.addEventListener("click", () => {
   setUI({ todayOnly: true });
-  renderMeta();
-  renderList();
+  clearTodayBtn.disabled = false;
+  refresh();
   toast("Showing tasks due today");
-  btnClearToday.disabled = false;
 });
 
-btnClearToday.addEventListener("click", () => {
+clearTodayBtn.addEventListener("click", () => {
   setUI({ todayOnly: false });
-  renderMeta();
-  renderList();
-  renderCalendar();
+  clearTodayBtn.disabled = true;
+  refresh();
   toast("Today filter cleared");
-  btnClearToday.disabled = true;
 });
 
-/* -------------------- Calendar controls -------------------- */
-calPrev.addEventListener("click", () => {
-  shiftCalendarMonth(-1);
-  renderCalendar();
+/* ---------- calendar nav ---------- */
+prevMonthBtn.addEventListener("click", () => { shiftCalendarMonth(-1); renderCalendar(); });
+nextMonthBtn.addEventListener("click", () => { shiftCalendarMonth(1); renderCalendar(); });
+
+/* ---------- filters ---------- */
+searchInput.addEventListener("input", () => { setUI({ search: searchInput.value }); refresh(); });
+statusSelect.addEventListener("change", () => { setUI({ status: statusSelect.value }); refresh(); });
+tagFilterInput.addEventListener("input", () => { setUI({ tag: tagFilterInput.value }); refresh(); });
+sortSelect.addEventListener("change", () => {
+  setSort(sortSelect.value);
+  refresh();
+  toast(`Sorted by ${sortSelect.options[sortSelect.selectedIndex].text.toLowerCase()}`);
 });
 
-calNext.addEventListener("click", () => {
-  shiftCalendarMonth(1);
-  renderCalendar();
-});
+/* ---------- list actions (delegation) ---------- */
+taskList.addEventListener("click", (e) => {
+  const card = e.target.closest(".taskCard");
+  const btn = e.target.closest("[data-action]");
+  if (!card || !btn) return;
 
-calAdd.addEventListener("click", () => {
-  openModal({ mode: "add", task: null });
-});
-
-/* -------------------- Filters -------------------- */
-qSearch.addEventListener("input", () => {
-  setUI({ search: qSearch.value });
-  renderMeta(); renderList(); renderCalendar();
-});
-
-qStatus.addEventListener("change", () => {
-  setUI({ status: qStatus.value });
-  renderMeta(); renderList(); renderCalendar();
-});
-
-qTag.addEventListener("input", () => {
-  setUI({ tag: qTag.value });
-  renderMeta(); renderList(); renderCalendar();
-});
-
-qSort.addEventListener("change", () => {
-  setSort(qSort.value);
-  renderMeta(); renderList(); renderCalendar();
-  toast(`Sorted by ${qSort.options[qSort.selectedIndex].text.toLowerCase()}`);
-});
-
-/* -------------------- List actions (event delegation) -------------------- */
-listEl.addEventListener("click", (e) => {
-  const card = e.target.closest(".task");
-  if (!card) return;
   const id = card.dataset.id;
-  const actionBtn = e.target.closest("[data-action]");
-  if (!actionBtn) return;
+  const action = btn.dataset.action;
 
-  const action = actionBtn.dataset.action;
-
-  if (action === "toggle") {
-    toggleDone(id);
-    renderStats();
-    renderMeta();
-    renderList();
-    renderCalendar();
-    return;
-  }
-
-  if (action === "edit") {
-    const task = findTaskById(id);
-    openModal({ mode: "edit", task });
-    // show delete button in modal
-    delInModal.dataset.id = id;
-    return;
-  }
+  if (action === "toggle") { toggleDone(id); refresh(); return; }
+  if (action === "edit") { openModal("edit", findTask(id)); return; }
 
   if (action === "delete") {
-    animateRemoveTaskCard(card, () => {
+    animateRemove(card, () => {
       deleteTask(id);
-      renderStats();
-      renderMeta();
-      renderList();
-      renderCalendar();
-      toast("Task deleted", "danger");
+      refresh();
+      toast("Task deleted", true);
     });
   }
 });
 
-/* -------------------- Calendar actions (event delegation) -------------------- */
-calGrid.addEventListener("click", (e) => {
-  // Edit existing task from chip
+/* ---------- calendar actions (delegation) ---------- */
+calendarGrid.addEventListener("click", (e) => {
   const chip = e.target.closest("[data-cal-id]");
-  if (chip) {
-    const id = chip.dataset.calId;
-    const task = findTaskById(id);
-    if (task) {
-      openModal({ mode: "edit", task });
-      delInModal.dataset.id = id;
-    }
-    return;
-  }
+  if (chip) return openModal("edit", findTask(chip.dataset.calId));
 
-  // Quick-add: click empty cell to add with pre-filled due date
-  const cell = e.target.closest(".calCell");
+  const cell = e.target.closest(".dayCell");
   const dateStr = cell?.dataset?.date;
-  if (dateStr) {
-    openModal({ mode: "add", task: null });
-    // Set due date after modal opens
-    setTimeout(() => {
-      const due = document.querySelector("#dueDate");
-      if (due) due.value = dateStr;
-    }, 0);
-  }
+  if (!dateStr) return;
+
+  openModal("add");
+  setTimeout(() => { el("dateInput").value = dateStr; }, 0);
 });
 
-/* -------------------- Modal controls -------------------- */
-modalClose.addEventListener("click", closeModal);
-btnCancel.addEventListener("click", closeModal);
+/* ---------- modal ---------- */
+closeModalBtn.addEventListener("click", closeModal);
+cancelBtn.addEventListener("click", closeModal);
 
-delInModal.addEventListener("click", () => {
-  const id = document.querySelector("#taskId").value;
+deleteBtn.addEventListener("click", () => {
+  const id = el("taskId").value;
   if (!id) return;
   closeModal();
-  // delete with animation if card exists
-  const card = document.querySelector(`.task[data-id="${CSS.escape(id)}"]`);
+
+  const card = document.querySelector(`.taskCard[data-id="${CSS.escape(id)}"]`);
   if (card) {
-    animateRemoveTaskCard(card, () => {
+    animateRemove(card, () => {
       deleteTask(id);
-      renderStats(); renderMeta(); renderList(); renderCalendar();
-      toast("Task deleted", "danger");
+      refresh();
+      toast("Task deleted", true);
     });
   } else {
     deleteTask(id);
-    renderStats(); renderMeta(); renderList(); renderCalendar();
-    toast("Task deleted", "danger");
+    refresh();
+    toast("Task deleted", true);
   }
 });
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
 
-  const id = document.querySelector("#taskId").value.trim();
-  const title = document.querySelector("#title").value.trim();
-  const dueDate = document.querySelector("#dueDate").value;
-  const priority = document.querySelector("#priority").value;
-  const tag = document.querySelector("#tag").value.trim();
+  const id = el("taskId").value.trim();
+  const title = el("titleInput").value.trim();
+  const dueDate = el("dateInput").value;
+  const priority = el("prioritySelect").value;
+  const tag = el("tagInput").value.trim();
 
-  if (title.length < 2) {
-    toast("Title is too short (min 2 chars)", "danger");
-    return;
-  }
+  if (title.length < 2) return toast("Title is too short (min 2 chars)", true);
 
   if (!id) {
     addTask({ title, dueDate, priority, tag });
-    closeModal();
-    renderStats(); renderMeta(); renderList(); renderCalendar();
     toast("Task added");
   } else {
     updateTask(id, { title, dueDate, priority, tag });
-    closeModal();
-    renderStats(); renderMeta(); renderList(); renderCalendar();
     toast("Changes saved");
   }
+
+  closeModal();
+  refresh();
 });
-
-/* -------------------- Initial UI state sync -------------------- */
-(() => {
-  // Theme + layout persisted already in state.settings
-  // Ensure layout dataset is correct
-  applyLayout();
-
-  // Controls defaults
-  qStatus.value = state.ui.status;
-  qSearch.value = state.ui.search;
-  qTag.value = state.ui.tag;
-
-  // Today filter button state
-  btnClearToday.disabled = !state.ui.todayOnly;
-
-  // View button label + initial section visibility
-  btnView.innerHTML = state.ui.view === "calendar"
-    ? "📃 <span class=\"hide-sm\">List</span>"
-    : "🗓 <span class=\"hide-sm\">Calendar</span>";
-  renderView();
-  renderCalendar();
-})();

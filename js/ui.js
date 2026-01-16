@@ -1,317 +1,203 @@
 import { state, getFilteredSortedItems, getStats } from "./state.js";
 
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+const el = (id) => document.getElementById(id);
 
-function priorityLabel(p) {
-  if (p === "high") return "High";
-  if (p === "low") return "Low";
-  return "Medium";
-}
+const E = (s="") => String(s)
+  .replaceAll("&","&amp;")
+  .replaceAll("<","&lt;")
+  .replaceAll(">","&gt;")
+  .replaceAll('"',"&quot;")
+  .replaceAll("'","&#039;");
 
-function dueLabel(dueDate, todayStr) {
-  if (!dueDate) return "No date";
-  if (dueDate === todayStr) return "Due today";
-  return `Due ${dueDate}`;
-}
+const prioText = (p) => p === "high" ? "High" : p === "low" ? "Low" : "Medium";
+const dueText = (d, today) => !d ? "No date" : d === today ? "Due today" : `Due ${d}`;
+const pad2 = (n) => String(n).padStart(2, "0");
+const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 
-export function applyTheme() {
-  document.documentElement.dataset.theme = state.settings.theme;
-}
+export const applyTheme = () => (document.documentElement.dataset.theme = state.settings.theme);
+export const applyLayout = () => (el("taskList").dataset.layout = state.settings.layout);
 
-export function applyLayout() {
-  const list = document.querySelector("#list");
-  list.dataset.layout = state.settings.layout;
-}
-
-export function renderView() {
-  const listSection = document.querySelector(".listSection");
-  const calSection = document.querySelector("#calendarSection");
-  if (!listSection || !calSection) return;
-
+export function renderView(){
   const isCal = state.ui.view === "calendar";
-  calSection.hidden = !isCal;
-  listSection.hidden = isCal;
+  el("calendarView").hidden = !isCal;
+  el("taskSection").hidden = isCal;
 }
 
-export function renderAll() {
+export function renderAll(){
   renderStats();
-  renderList();
   renderMeta();
+  renderList();
   renderView();
   renderCalendar();
 }
 
-function pad2(n) { return String(n).padStart(2, "0"); }
-
-function toYMD(d) {
-  const yyyy = d.getFullYear();
-  const mm = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function startOfGrid(firstOfMonth) {
-  // JS getDay(): Sun=0..Sat=6 ; we want Mon=0..Sun=6
-  const dowMon0 = (firstOfMonth.getDay() + 6) % 7;
-  const start = new Date(firstOfMonth);
-  start.setDate(firstOfMonth.getDate() - dowMon0);
-  start.setHours(0, 0, 0, 0);
-  return start;
-}
-
-export function renderCalendar() {
-  const gridEl = document.querySelector("#calGrid");
-  const labelEl = document.querySelector("#calMonthLabel");
-  const undatedWrap = document.querySelector("#calUndated");
-  const undatedList = document.querySelector("#calUndatedList");
-  if (!gridEl || !labelEl) return;
-
-  const ym = state.ui.calYM || "";
-  const [yStr, mStr] = ym.split("-");
-  const y = Number(yStr);
-  const m0 = Number(mStr) - 1;
-  const first = (Number.isFinite(y) && Number.isFinite(m0)) ? new Date(y, m0, 1) : new Date();
-
-  labelEl.textContent = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-
-  const { items, todayStr } = getFilteredSortedItems();
-
-  // Group tasks by due date
-  const byDate = new Map();
-  const undated = [];
-  for (const t of items) {
-    if (!t.dueDate) { undated.push(t); continue; }
-    if (!byDate.has(t.dueDate)) byDate.set(t.dueDate, []);
-    byDate.get(t.dueDate).push(t);
-  }
-
-  // Build 6-week grid (42 cells)
-  const start = startOfGrid(first);
-  const cells = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    const ymd = toYMD(d);
-
-    const otherMonth = d.getMonth() !== first.getMonth();
-    const tasks = byDate.get(ymd) || [];
-
-    const dateClass = ymd === todayStr ? "calDate calDate--today" : "calDate";
-    const cellClass = otherMonth ? "calCell calCell--otherMonth" : "calCell";
-
-    const chips = [];
-    const max = 3;
-    for (let j = 0; j < Math.min(max, tasks.length); j++) {
-      const t = tasks[j];
-      const prioClass = t.priority === "high" ? "calChip--high"
-        : t.priority === "low" ? "calChip--low"
-        : "";
-      const doneClass = t.done ? "calChip--done" : "";
-      chips.push(
-        `<button class="calChip ${prioClass} ${doneClass}" type="button" title="Edit task"
-                 data-cal-id="${escapeHtml(t.id)}">${escapeHtml(t.title)}</button>`
-      );
-    }
-    if (tasks.length > max) {
-      chips.push(`<div class="calChip calMore" aria-hidden="true">+${tasks.length - max} more</div>`);
-    }
-
-    cells.push(`
-      <div class="${cellClass}" role="gridcell" data-date="${ymd}">
-        <div class="calDateRow">
-          <div class="${dateClass}">${escapeHtml(d.getDate())}</div>
-        </div>
-        <div class="calChips">
-          ${chips.join("")}
-        </div>
-      </div>
-    `);
-  }
-
-  gridEl.innerHTML = cells.join("");
-
-  // Undated
-  if (undatedWrap && undatedList) {
-    undatedWrap.hidden = undated.length === 0;
-    if (undated.length === 0) {
-      undatedList.innerHTML = "";
-    } else {
-      undatedList.innerHTML = undated.map(t => {
-        const prioClass = t.priority === "high" ? "calChip--high"
-          : t.priority === "low" ? "calChip--low"
-          : "";
-        const doneClass = t.done ? "calChip--done" : "";
-        return `<button class="calChip ${prioClass} ${doneClass}" type="button" title="Edit task"
-                        data-cal-id="${escapeHtml(t.id)}">${escapeHtml(t.title)}</button>`;
-      }).join("");
-    }
-  }
-}
-
-export function renderStats() {
+export function renderStats(){
   const { total, done, pct } = getStats();
-
-  document.querySelector("#statsTotal").textContent = total;
-  document.querySelector("#statsDone").textContent = done;
-  document.querySelector("#statsPct").textContent = `${pct}%`;
-
-  const sub = document.querySelector("#statsSub");
-  if (total === 0) sub.textContent = "No tasks yet. Add your first one.";
-  else sub.textContent = done === total ? "Nice — everything is done." : "Keep going — you’re making progress.";
-
-  document.querySelector("#progressBar").style.width = `${pct}%`;
+  el("totalCount").textContent = total;
+  el("doneCount").textContent = done;
+  el("donePercent").textContent = `${pct}%`;
+  el("statsText").textContent = total === 0
+    ? "No tasks yet. Add your first one."
+    : done === total ? "Nice — everything is done." : "Keep going — you’re making progress.";
+  el("progressFill").style.width = `${pct}%`;
 }
 
-export function renderMeta() {
+export function renderMeta(){
   const { items } = getFilteredSortedItems();
-  const meta = document.querySelector("#resultMeta");
-  const filters = [];
-
-  if (state.ui.search.trim()) filters.push(`search: "${state.ui.search.trim()}"`);
-  if (state.ui.tag.trim()) filters.push(`tag: "${state.ui.tag.trim()}"`);
-  if (state.ui.status !== "all") filters.push(`status: ${state.ui.status}`);
-  if (state.ui.todayOnly) filters.push(`today`);
-
-  meta.textContent = filters.length
-    ? `${items.length} result(s) · ${filters.join(" · ")}`
+  const parts = [];
+  const s = state.ui.search.trim();
+  const t = state.ui.tag.trim();
+  if (s) parts.push(`search: "${s}"`);
+  if (t) parts.push(`tag: "${t}"`);
+  if (state.ui.status !== "all") parts.push(`status: ${state.ui.status}`);
+  if (state.ui.todayOnly) parts.push("today");
+  el("resultsInfo").textContent = parts.length
+    ? `${items.length} result(s) · ${parts.join(" · ")}`
     : `${items.length} task(s)`;
 }
 
-export function renderList() {
-  const listEl = document.querySelector("#list");
-  const emptyEl = document.querySelector("#empty");
-
+export function renderList(){
   const { items, todayStr } = getFilteredSortedItems();
+  el("emptyState").hidden = items.length !== 0;
 
-  // Empty state
-  emptyEl.hidden = items.length !== 0;
-
-  // Build HTML
-  const html = items.map(t => {
-    const prioClass = t.priority === "high" ? "badge--high"
-                   : t.priority === "low"  ? "badge--low"
-                   : "badge--mid";
-    const tag = t.tag ? `<span class="badge">#${escapeHtml(t.tag)}</span>` : "";
-    const due = `<span class="badge">${escapeHtml(dueLabel(t.dueDate, todayStr))}</span>`;
-    const prio = `<span class="badge ${prioClass}">${escapeHtml(priorityLabel(t.priority))}</span>`;
-
+  el("taskList").innerHTML = items.map(t => {
+    const prioClass = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "mid";
+    const tag = t.tag ? `<span class="badge">#${E(t.tag)}</span>` : "";
     return `
-      <article class="task ${t.done ? "done" : ""}" data-id="${escapeHtml(t.id)}">
-        <div class="task__top">
-          <button class="check" type="button" aria-checked="${t.done ? "true" : "false"}" data-action="toggle"
-                  title="Toggle done"></button>
-          <div style="min-width:0">
-            <p class="task__title">${escapeHtml(t.title)}</p>
-            <div class="task__meta">
-              ${due}
-              ${prio}
+      <article class="taskCard ${t.done ? "done" : ""}" data-id="${E(t.id)}">
+        <div class="taskTop">
+          <button class="check" type="button" aria-checked="${t.done}" data-action="toggle" title="Toggle done"></button>
+          <div class="taskMain">
+            <p class="taskTitle">${E(t.title)}</p>
+            <div class="taskMeta">
+              <span class="badge">${E(dueText(t.dueDate, todayStr))}</span>
+              <span class="badge ${prioClass}">${E(prioText(t.priority))}</span>
               ${tag}
             </div>
           </div>
         </div>
-        <div class="task__actions">
-          <button class="btn btn--ghost" type="button" data-action="edit">✏ Edit</button>
-          <button class="btn btn--danger" type="button" data-action="delete">🗑 Delete</button>
+        <div class="taskActions">
+          <button class="btn ghostBtn" type="button" data-action="edit">✏ Edit</button>
+          <button class="btn dangerBtn" type="button" data-action="delete">🗑 Delete</button>
         </div>
       </article>
     `;
   }).join("");
 
-  listEl.innerHTML = html;
-
-  // Today clear button enable/disable
-  const clearBtn = document.querySelector("#btnClearToday");
-  clearBtn.disabled = !state.ui.todayOnly;
+  el("clearTodayBtn").disabled = !state.ui.todayOnly;
 }
 
-/* -------- Animations helpers -------- */
-export function animateRemoveTaskCard(cardEl, onDone) {
-  if (!cardEl) return onDone?.();
-  const h = cardEl.scrollHeight;
-  cardEl.style.maxHeight = `${h}px`; // set current height to animate to 0
-  // force reflow
-  cardEl.getBoundingClientRect();
-  cardEl.classList.add("removing");
-  cardEl.style.maxHeight = "0px";
-  const handle = () => {
-    cardEl.removeEventListener("transitionend", handle);
-    onDone?.();
-  };
-  cardEl.addEventListener("transitionend", handle);
+function gridStart(firstOfMonth){
+  const dowMon0 = (firstOfMonth.getDay() + 6) % 7;
+  const start = new Date(firstOfMonth);
+  start.setDate(firstOfMonth.getDate() - dowMon0);
+  start.setHours(0,0,0,0);
+  return start;
 }
 
-/* -------- Modal -------- */
-export function openModal({ mode, task }) {
-  const overlay = document.querySelector("#modalOverlay");
-  const title = document.querySelector("#modalTitle");
-  const form = document.querySelector("#taskForm");
-  const delBtn = document.querySelector("#btnDeleteInModal");
+export function renderCalendar(){
+  const grid = el("calendarGrid");
+  const label = el("monthLabel");
+  if (!grid || !label) return;
 
-  // Set titles / buttons
-  if (mode === "edit") {
-    title.textContent = "Edit task";
-    delBtn.hidden = false;
-  } else {
-    title.textContent = "Add task";
-    delBtn.hidden = true;
+  const [yStr, mStr] = (state.ui.calYM || "").split("-");
+  const y = Number(yStr);
+  const m0 = Number(mStr) - 1;
+  const first = (Number.isFinite(y) && Number.isFinite(m0)) ? new Date(y, m0, 1) : new Date();
+  label.textContent = first.toLocaleString(undefined, { month:"long", year:"numeric" });
+
+  const { items, todayStr } = getFilteredSortedItems();
+  const byDate = new Map();
+  const undated = [];
+  for (const t of items){
+    if (!t.dueDate) { undated.push(t); continue; }
+    (byDate.get(t.dueDate) || byDate.set(t.dueDate, []).get(t.dueDate)).push(t);
   }
 
-  // Fill inputs
-  document.querySelector("#taskId").value = task?.id ?? "";
-  document.querySelector("#title").value = task?.title ?? "";
-  document.querySelector("#dueDate").value = task?.dueDate ?? "";
-  document.querySelector("#priority").value = task?.priority ?? "mid";
-  document.querySelector("#tag").value = task?.tag ?? "";
+  const start = gridStart(first);
+  const cells = [];
 
-  overlay.hidden = false;
+  for (let i=0;i<42;i++){
+    const d = new Date(start);
+    d.setDate(start.getDate()+i);
+    const dateStr = ymd(d);
+    const otherMonth = d.getMonth() !== first.getMonth();
+    const tasks = byDate.get(dateStr) || [];
 
-  // small focus management
-  setTimeout(() => document.querySelector("#title").focus(), 0);
+    const chips = [];
+    const max = 3;
+    for (let j=0;j<Math.min(max, tasks.length); j++){
+      const t = tasks[j];
+      const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
+      const dn = t.done ? "done" : "";
+      chips.push(`<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" title="Edit task">${E(t.title)}</button>`);
+    }
+    if (tasks.length > max) chips.push(`<div class="taskChip more">+${tasks.length-max} more</div>`);
 
-  // prevent background scroll
-  document.body.style.overflow = "hidden";
+    cells.push(`
+      <div class="dayCell ${otherMonth ? "otherMonth" : ""}" role="gridcell" data-date="${dateStr}">
+        <div class="dayTop"><div class="dayNumber ${dateStr===todayStr ? "today" : ""}">${d.getDate()}</div></div>
+        <div class="chipList">${chips.join("")}</div>
+      </div>
+    `);
+  }
 
-  // simple: close on overlay click
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeModal();
-  }, { once: true });
+  grid.innerHTML = cells.join("");
 
-  // Esc closes
-  const onKey = (e) => {
-    if (e.key === "Escape") closeModal();
-  };
-  window.addEventListener("keydown", onKey, { once: true });
-
-  // keep form from autocompleting weirdly
-  //***********form.reset?.();
+  const box = el("undatedBox");
+  const list = el("undatedList");
+  if (box && list){
+    box.hidden = undated.length === 0;
+    list.innerHTML = undated.map(t => {
+      const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
+      const dn = t.done ? "done" : "";
+      return `<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" title="Edit task">${E(t.title)}</button>`;
+    }).join("");
+  }
 }
 
-export function closeModal() {
-  const overlay = document.querySelector("#modalOverlay");
-  overlay.hidden = true;
+export function animateRemove(card, onDone){
+  if (!card) return onDone?.();
+  card.style.maxHeight = `${card.scrollHeight}px`;
+  card.getBoundingClientRect();
+  card.classList.add("removing");
+  card.style.maxHeight = "0px";
+  card.addEventListener("transitionend", () => onDone?.(), { once:true });
+}
+
+export function openModal(mode, task){
+  el("modalTitle").textContent = mode === "edit" ? "Edit task" : "Add task";
+  el("deleteBtn").hidden = mode !== "edit";
+
+  el("taskId").value = task?.id || "";
+  el("titleInput").value = task?.title || "";
+  el("dateInput").value = task?.dueDate || "";
+  el("prioritySelect").value = task?.priority || "mid";
+  el("tagInput").value = task?.tag || "";
+
+  el("modalBackdrop").hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => el("titleInput").focus(), 0);
+
+  const backdrop = el("modalBackdrop");
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); }, { once:true });
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); }, { once:true });
+}
+
+export function closeModal(){
+  el("modalBackdrop").hidden = true;
   document.body.style.overflow = "";
 }
 
-/* -------- Toasts -------- */
-export function toast(message, variant = "default") {
-  const host = document.querySelector("#toasts");
-  const el = document.createElement("div");
-  el.className = `toast ${variant === "danger" ? "toast--danger" : ""}`;
-  el.textContent = message;
-  host.appendChild(el);
-
-  // auto-remove
+export function toast(msg, danger=false){
+  const host = el("toastArea");
+  const t = document.createElement("div");
+  t.className = `toast${danger ? " danger" : ""}`;
+  t.textContent = msg;
+  host.appendChild(t);
   setTimeout(() => {
-    el.style.opacity = "0";
-    el.style.transform = "translateY(10px)";
-    el.style.transition = "opacity .18s ease, transform .18s ease";
-    setTimeout(() => el.remove(), 220);
+    t.style.opacity = "0";
+    t.style.transform = "translateY(10px)";
+    setTimeout(() => t.remove(), 200);
   }, 2200);
 }

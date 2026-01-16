@@ -8,68 +8,66 @@
 </head>
 
 <body>
-  <header class="topbar">
-    <div class="topbar__inner">
-      <div class="brand">
-        <div class="brand__logo" aria-hidden="true">📚</div>
+  <header class="appHeader">
+    <div class="headerRow">
+      <div class="appBrand">
+        <div class="appLogo" aria-hidden="true">📚</div>
         <div>
-          <h1 class="brand__title">Study Planner</h1>
-          <p class="brand__subtitle">Tasks, deadlines, and progress — all in one place.</p>
+          <h1 class="appTitle">Study Planner</h1>
+          <p class="appSubtitle">Tasks, deadlines, and progress — all in one place.</p>
         </div>
       </div>
 
-      <div class="topbar__actions">
-        <button id="btnView" class="btn btn--ghost" type="button" aria-label="Toggle calendar view">
-          🗓 <span class="hide-sm">Calendar</span>
+      <div class="headerButtons">
+        <button id="viewBtn" class="btn ghostBtn" type="button" aria-label="Toggle calendar view">
+          🗓 <span class="hideOnSmall">Calendar</span>
         </button>
-        <button id="btnTheme" class="btn btn--ghost" type="button" aria-label="Toggle theme">
-          🌙 <span class="hide-sm">Theme</span>
+        <button id="themeBtn" class="btn ghostBtn" type="button" aria-label="Toggle theme">
+          🌙 <span class="hideOnSmall">Theme</span>
         </button>
-        <button id="btnLayout" class="btn btn--ghost" type="button" aria-label="Toggle layout">
-          ⬛ <span class="hide-sm">Layout</span>
+        <button id="layoutBtn" class="btn ghostBtn" type="button" aria-label="Toggle layout">
+          ⬛ <span class="hideOnSmall">Layout</span>
         </button>
-        <button id="btnAdd" class="btn btn--primary" type="button">
-          ➕ Add task
-        </button>
+        <button id="addBtn" class="btn primaryBtn" type="button">➕ Add task</button>
       </div>
     </div>
   </header>
 
-  <main class="container">
+  <main class="page">
     <!-- Stats -->
-    <section class="card stats" aria-label="Stats">
-      <div class="stats__row">
-        <div class="stats__text">
-          <div class="stats__headline">
-            <span id="statsDone">0</span>/<span id="statsTotal">0</span> done
+    <section class="card statsCard" aria-label="Stats">
+      <div class="statsRow">
+        <div>
+          <div class="statsHeadline">
+            <span id="doneCount">0</span>/<span id="totalCount">0</span> done
             <span class="muted">·</span>
-            <span id="statsPct">0%</span>
+            <span id="donePercent">0%</span>
           </div>
-          <div class="stats__sub muted" id="statsSub">No tasks yet. Add your first one.</div>
+          <div class="muted statsText" id="statsText">No tasks yet. Add your first one.</div>
         </div>
 
-        <div class="stats__quick">
-          <button id="btnToday" class="btn btn--ghost" type="button">📅 Today</button>
-          <button id="btnClearToday" class="btn btn--ghost" type="button" disabled>✖ Clear</button>
+        <div class="statsButtons">
+          <button id="todayBtn" class="btn ghostBtn" type="button">📅 Today</button>
+          <button id="clearTodayBtn" class="btn ghostBtn" type="button" disabled>✖ Clear</button>
         </div>
       </div>
 
-      <div class="progress" aria-label="Progress bar">
-        <div id="progressBar" class="progress__bar" style="width: 0%"></div>
+      <div class="progressBar" aria-label="Progress bar">
+        <div id="progressFill" class="progressFill" style="width: 0%"></div>
       </div>
     </section>
 
-    <!-- Controls -->
-    <section class="controls" aria-label="Filters and search">
-      <div class="controls__row">
-        <label class="field field--grow">
-          <span class="field__label">Search</span>
-          <input id="qSearch" class="input" type="search" placeholder="Search by title or tag..." autocomplete="off" />
+    <!-- Filters -->
+    <section class="filters" aria-label="Filters and search">
+      <div class="filtersRow">
+        <label class="field grow">
+          <span class="label">Search</span>
+          <input id="searchInput" class="input" type="search" placeholder="Search by title or tag..." autocomplete="off" />
         </label>
 
         <label class="field">
-          <span class="field__label">Status</span>
-          <select id="qStatus" class="select">
+          <span class="label">Status</span>
+          <select id="statusSelect" class="select">
             <option value="all">All</option>
             <option value="active">Active</option>
             <option value="done">Done</option>
@@ -77,13 +75,13 @@
         </label>
 
         <label class="field">
-          <span class="field__label">Tag</span>
-          <input id="qTag" class="input" type="text" placeholder="e.g. math" />
+          <span class="label">Tag</span>
+          <input id="tagFilterInput" class="input" type="text" placeholder="e.g. math" />
         </label>
 
         <label class="field">
-          <span class="field__label">Sort</span>
-          <select id="qSort" class="select">
+          <span class="label">Sort</span>
+          <select id="sortSelect" class="select">
             <option value="date">Due date</option>
             <option value="priority">Priority</option>
             <option value="created">Created</option>
@@ -93,72 +91,71 @@
     </section>
 
     <!-- List -->
-    <section class="listSection" aria-label="Task list">
-      <div class="listHeader">
-        <h2 class="h2">Your tasks</h2>
-        <div id="resultMeta" class="muted"></div>
+    <section class="taskSection" aria-label="Task list" id="taskSection">
+      <div class="sectionTop">
+        <h2 class="sectionTitle">Your tasks</h2>
+        <div id="resultsInfo" class="muted"></div>
       </div>
 
-      <div id="list" class="taskList" data-layout="grid"></div>
+      <div id="taskList" class="taskList" data-layout="grid"></div>
 
-      <div id="empty" class="emptyState" hidden>
-        <div class="emptyState__icon" aria-hidden="true">🗂️</div>
-        <h3 class="emptyState__title">No tasks match your filters</h3>
-        <p class="emptyState__text muted">Try clearing search/tag filters or switch status to “All”.</p>
+      <div id="emptyState" class="emptyState" hidden>
+        <div class="emptyIcon" aria-hidden="true">🗂️</div>
+        <h3 class="emptyTitle">No tasks match your filters</h3>
+        <p class="muted">Try clearing search/tag filters or switch status to “All”.</p>
       </div>
     </section>
 
     <!-- Calendar -->
-    <section id="calendarSection" class="card calendarSection" aria-label="Calendar view" hidden>
+    <section id="calendarView" class="card calendarCard" aria-label="Calendar view" hidden>
       <div class="calendarTop">
-        <h2 id="calMonthLabel" class="calendarTop__month">Month</h2>
-        <div class="calendarTop__actions" aria-label="Calendar controls">
-          <button id="calPrev" class="btn btn--ghost" type="button" aria-label="Previous month">‹</button>
-          <button id="calNext" class="btn btn--ghost" type="button" aria-label="Next month">›</button>
-          <button id="calAdd" class="btn btn--primary" type="button" aria-label="Add task">＋</button>
+        <h2 id="monthLabel" class="calendarMonth">Month</h2>
+        <div class="calendarButtons" aria-label="Calendar controls">
+          <button id="prevMonthBtn" class="btn ghostBtn" type="button" aria-label="Previous month">‹</button>
+          <button id="nextMonthBtn" class="btn ghostBtn" type="button" aria-label="Next month">›</button>
+          <button id="calendarAddBtn" class="btn primaryBtn" type="button" aria-label="Add task">＋</button>
         </div>
       </div>
 
-      <div class="calendarWeekdays" aria-hidden="true">
+      <div class="weekdays" aria-hidden="true">
         <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
       </div>
 
-      <div id="calGrid" class="calendarGrid" role="grid" aria-label="Month grid"></div>
+      <div id="calendarGrid" class="calendarGrid" role="grid" aria-label="Month grid"></div>
 
-      <div id="calUndated" class="calendarUndated" hidden>
-        <div class="calendarUndated__title muted">Undated tasks</div>
-        <div id="calUndatedList" class="calendarUndated__list"></div>
+      <div id="undatedBox" class="undatedBox" hidden>
+        <div class="muted undatedTitle">Undated tasks</div>
+        <div id="undatedList" class="undatedList"></div>
       </div>
     </section>
   </main>
 
   <!-- Modal -->
-  <div id="modalOverlay" class="modalOverlay" hidden>
+  <div id="modalBackdrop" class="modalBackdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal__header">
-        <h2 id="modalTitle" class="h2">Add task</h2>
-        <button id="btnCloseModal" class="btn btn--ghost" type="button" aria-label="Close modal">✖</button>
+      <div class="modalTop">
+        <h2 id="modalTitle" class="sectionTitle">Add task</h2>
+        <button id="closeModalBtn" class="btn ghostBtn" type="button" aria-label="Close modal">✖</button>
       </div>
 
-      <form id="taskForm" class="modal__body">
+      <form id="taskForm" class="modalBody">
         <input type="hidden" id="taskId" />
 
         <label class="field">
-          <span class="field__label">Title <span class="req">*</span></span>
-          <input id="title" class="input" type="text" required minlength="2" maxlength="80"
-                 placeholder="e.g. Learn CSS Grid" />
-          <span class="field__hint muted">2–80 characters</span>
+          <span class="label">Title <span class="required">*</span></span>
+          <input id="titleInput" class="input" type="text" required minlength="2" maxlength="80" placeholder="e.g. Learn CSS Grid" />
+          <span class="muted hint">2–80 characters</span>
         </label>
 
-        <div class="modal__grid">
+        <div class="modalGrid">
           <label class="field">
-            <span class="field__label">Due date</span>
-            <input id="dueDate" class="input" type="date" />
+            <span class="label">Due date</span>
+            <input id="dateInput" class="input" type="date" />
           </label>
 
           <label class="field">
-            <span class="field__label">Priority</span>
-            <select id="priority" class="select">
+            <span class="label">Priority</span>
+            <select id="prioritySelect" class="select">
               <option value="low">Low</option>
               <option value="mid" selected>Medium</option>
               <option value="high">High</option>
@@ -166,23 +163,23 @@
           </label>
 
           <label class="field">
-            <span class="field__label">Tag</span>
-            <input id="tag" class="input" type="text" maxlength="20" placeholder="e.g. web, math" />
+            <span class="label">Tag</span>
+            <input id="tagInput" class="input" type="text" maxlength="20" placeholder="e.g. web, math" />
           </label>
         </div>
 
-        <div class="modal__footer">
-          <button id="btnDeleteInModal" class="btn btn--danger" type="button" hidden>🗑 Delete</button>
+        <div class="modalFooter">
+          <button id="deleteBtn" class="btn dangerBtn" type="button" hidden>🗑 Delete</button>
           <div class="spacer"></div>
-          <button class="btn btn--ghost" type="button" id="btnCancel">Cancel</button>
-          <button class="btn btn--primary" type="submit" id="btnSave">Save</button>
+          <button class="btn ghostBtn" type="button" id="cancelBtn">Cancel</button>
+          <button class="btn primaryBtn" type="submit" id="saveBtn">Save</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Toast host -->
-  <div id="toasts" class="toastHost" aria-live="polite" aria-atomic="true"></div>
+  <!-- Toasts -->
+  <div id="toastArea" class="toastArea" aria-live="polite" aria-atomic="true"></div>
 
   <script type="module" src="./js/main.js"></script>
 </body>
