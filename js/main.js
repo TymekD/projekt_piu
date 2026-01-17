@@ -41,6 +41,7 @@ const sortSelect = el("sortSelect");
 
 const taskList = el("taskList");
 const calendarGrid = el("calendarGrid");
+const undatedListTop = el("undatedList"); // NEW: used for click-to-edit on undated chips
 
 const closeModalBtn = el("closeModalBtn");
 const cancelBtn = el("cancelBtn");
@@ -178,7 +179,17 @@ layoutBtn.addEventListener("click", () => {
 /* ---------- calendar nav (month shift + holiday auto-load) ---------- */
 function shiftMonthAnimated(dir){
   const before = getCalendarYear();
-  if (calendarGrid) calendarGrid.dataset.slide = dir > 0 ? "next" : "prev";
+  if (calendarGrid){
+    calendarGrid.dataset.slide = dir > 0 ? "next" : "prev";
+    // Directional slide animation (CSS classes)
+    calendarGrid.classList.remove("calSlideNext", "calSlidePrev");
+    // force reflow so animation restarts reliably
+    void calendarGrid.offsetWidth;
+    calendarGrid.classList.add(dir > 0 ? "calSlideNext" : "calSlidePrev");
+    calendarGrid.addEventListener("animationend", () => {
+      calendarGrid.classList.remove("calSlideNext", "calSlidePrev");
+    }, { once:true });
+  }
   shiftCalendarMonth(dir);
   const after = getCalendarYear();
   renderCalendar();
@@ -232,6 +243,15 @@ calendarGrid.addEventListener("click", (e) => {
   setTimeout(() => { el("dateInput").value = dateStr; }, 0);
 });
 
+/* ---------- NEW: undated chip click -> edit ---------- */
+if (undatedListTop){
+  undatedListTop.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-cal-id]");
+    if (!chip) return;
+    openModal("edit", findTask(chip.dataset.calId));
+  });
+}
+
 /* ---------- modal ---------- */
 closeModalBtn.addEventListener("click", closeModal);
 cancelBtn.addEventListener("click", closeModal);
@@ -279,14 +299,16 @@ form.addEventListener("submit", (e) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Drag & Drop: move tasks between calendar days (NEW, appended only)  */
+/* Drag & Drop: undated <-> calendar (bidirectional)                   */
+/* + Edge highlight + Month shift by dragging near left/right edge     */
 /* ------------------------------------------------------------------ */
-
 
 (() => {
   // Prevent double-init if module is re-evaluated.
   if (window.__plannerDnDReady) return;
   window.__plannerDnDReady = true;
+
+  const DND_MIME = "text/x-planner-task-id";
 
   const grid = document.getElementById("calendarGrid");
   const undatedBox = document.getElementById("undatedBox");
@@ -294,12 +316,24 @@ form.addEventListener("submit", (e) => {
 
   if (!grid) return;
 
-  let lastOver = null;
+  let lastOverCell = null;
+
+  // Edge-driven month shift (drag near left/right edge)
+  const EDGE_PX = 26;
+  const SHIFT_COOLDOWN = 520; // ms
+  let lastShiftAt = 0;
+  let activeDragId = "";
+
+  function setEdgeIndicator(side){
+    // side: "left" | "right" | ""
+    grid.classList.toggle("edgeLeftActive", side === "left");
+    grid.classList.toggle("edgeRightActive", side === "right");
+  }
 
   function clearOver(){
     document.querySelectorAll(".dayCell.dragOver").forEach(n => n.classList.remove("dragOver"));
-    if (undatedBox) undatedBox.classList.remove("dragOver");
-    lastOver = null;
+    undatedBox?.classList.remove("dragOver");
+    lastOverCell = null;
   }
 
   function markChipsDraggable(root = document){
@@ -311,10 +345,8 @@ form.addEventListener("submit", (e) => {
     });
   }
 
-  // Initial pass (in case calendar already rendered)
+  // Initial pass + keep newly rendered chips draggable.
   markChipsDraggable(document);
-
-  // Keep newly rendered chips draggable.
   const obs = new MutationObserver((muts) => {
     for (const m of muts){
       m.addedNodes.forEach(node => {
@@ -325,46 +357,93 @@ form.addEventListener("submit", (e) => {
   obs.observe(grid, { childList: true, subtree: true });
   if (undatedList) obs.observe(undatedList, { childList: true, subtree: true });
 
-  // Drag start / end
-  grid.addEventListener("dragstart", (e) => {
-    const chip = e.target.closest('button.taskChip[data-cal-id]');
-    if (!chip) return;
-    const id = (chip.dataset.calId || "").trim();
-    if (!id) return;
-
-    chip.classList.add("isDragging");
-
+  function setDragPayload(ev, id){
     try{
-      e.dataTransfer.setData("text/plain", id);
-      e.dataTransfer.effectAllowed = "move";
+      ev.dataTransfer.setData(DND_MIME, id);
+      ev.dataTransfer.setData("text/plain", id);
+      ev.dataTransfer.effectAllowed = "move";
     } catch {
       // ignore
     }
-  });
-
-  document.addEventListener("dragend", (e) => {
-    const chip = e.target?.closest?.('button.taskChip[data-cal-id]');
-    if (chip) chip.classList.remove("isDragging");
-    clearOver();
-  });
+  }
 
   function getDragId(ev){
     try{
-      return String(ev.dataTransfer.getData("text/plain") || "").trim();
+      return (
+        String(ev.dataTransfer?.getData(DND_MIME) || "") ||
+        String(ev.dataTransfer?.getData("text/plain") || "")
+      ).trim();
     } catch {
       return "";
     }
   }
 
-  // Drop on a day cell -> set dueDate to that date
+  function onDragStart(e){
+    const chip = e.target.closest('button.taskChip[data-cal-id]');
+    if (!chip) return;
+    const id = (chip.dataset.calId || "").trim();
+    if (!id) return;
+
+    activeDragId = id;
+    chip.classList.add("isDragging");
+    setDragPayload(e, id);
+  }
+
+  function onDragEnd(){
+    activeDragId = "";
+    setEdgeIndicator("");
+    document.querySelectorAll('button.taskChip.isDragging').forEach(n => n.classList.remove("isDragging"));
+    clearOver();
+  }
+
+  // Sources: both dated chips (calendar grid) and undated chips (undated list)
+  grid.addEventListener("dragstart", onDragStart);
+  grid.addEventListener("dragend", onDragEnd);
+  if (undatedList){
+    undatedList.addEventListener("dragstart", onDragStart);
+    undatedList.addEventListener("dragend", onDragEnd);
+  }
+  document.addEventListener("dragend", onDragEnd);
+
+  function maybeShiftMonthByEdge(e){
+    if (!activeDragId) {
+      setEdgeIndicator("");
+      return;
+    }
+
+    const rect = grid.getBoundingClientRect();
+    const x = e.clientX;
+    const nearLeft = x <= rect.left + EDGE_PX;
+    const nearRight = x >= rect.right - EDGE_PX;
+
+    if (nearLeft && !nearRight) setEdgeIndicator("left");
+    else if (nearRight && !nearLeft) setEdgeIndicator("right");
+    else setEdgeIndicator("");
+
+    if (!nearLeft && !nearRight) return;
+
+    const now = Date.now();
+    if (now - lastShiftAt < SHIFT_COOLDOWN) return;
+    lastShiftAt = now;
+
+    const dir = nearRight ? 1 : -1;
+    shiftMonthAnimated(dir);
+
+    // Clear hover state after rerender so it doesn't stick.
+    clearOver();
+  }
+
+  // Target: day cell -> set dueDate
   grid.addEventListener("dragover", (e) => {
+    maybeShiftMonthByEdge(e);
+
     const cell = e.target.closest(".dayCell");
     if (!cell) return;
     e.preventDefault();
 
-    if (lastOver && lastOver !== cell) lastOver.classList.remove("dragOver");
+    if (lastOverCell && lastOverCell !== cell) lastOverCell.classList.remove("dragOver");
     cell.classList.add("dragOver");
-    lastOver = cell;
+    lastOverCell = cell;
   });
 
   grid.addEventListener("dragleave", (e) => {
@@ -375,35 +454,29 @@ form.addEventListener("submit", (e) => {
     if (to && cell.contains(to)) return;
 
     cell.classList.remove("dragOver");
-    if (lastOver === cell) lastOver = null;
+    if (lastOverCell === cell) lastOverCell = null;
   });
 
   grid.addEventListener("drop", (e) => {
+    setEdgeIndicator("");
     const cell = e.target.closest(".dayCell");
-    if (!cell) return;
+    const dateStr = cell?.dataset?.date;
+    if (!cell || !dateStr) return;
 
     e.preventDefault();
     const id = getDragId(e);
-    const dateStr = cell.dataset.date;
-
-    if (!id || !dateStr){
+    if (!id){
       clearOver();
       return;
     }
 
     updateTask(id, { dueDate: dateStr });
     toast(`Moved to ${dateStr}`);
-
     clearOver();
-    renderStats();
-    renderHolidays();
-    renderMeta();
-    renderTags();
-    renderList();
-    renderCalendar();
+    refresh();
   });
 
-  // Drop on Undated -> clear dueDate
+  // Target: Undated box -> clear dueDate
   if (undatedBox){
     undatedBox.addEventListener("dragover", (e) => {
       e.preventDefault();
@@ -426,238 +499,9 @@ form.addEventListener("submit", (e) => {
 
       updateTask(id, { dueDate: "" });
       toast("Moved to undated");
-
       undatedBox.classList.remove("dragOver");
-      renderStats();
-      renderHolidays();
-      renderMeta();
-      renderTags();
-      renderList();
-      renderCalendar();
+      clearOver();
+      refresh();
     });
   }
-  
 })();
-
-/* ------------------------------------------------------------------ */
-/* Drag & Drop extension: allow dragging FROM Undated list to calendar */
-/* (APPEND-ONLY)                                                      */
-/* ------------------------------------------------------------------ */
-
-/*
-(() => {
-  if (window.__plannerDnDUndatedDragStartReady) return;
-  window.__plannerDnDUndatedDragStartReady = true;
-
-  const undatedList = document.getElementById("undatedList");
-  if (!undatedList) return;
-
-  undatedList.addEventListener("dragstart", (e) => {
-    const chip = e.target.closest('button.taskChip[data-cal-id]');
-    if (!chip) return;
-
-    const id = (chip.dataset.calId || "").trim();
-    if (!id) return;
-
-    chip.classList.add("isDragging");
-
-    try {
-      e.dataTransfer.setData("text/plain", id);
-      e.dataTransfer.effectAllowed = "move";
-    } catch {}
-  });
-})();
-
-*/
-
-/* ===================================================== */
-/* Drag & Drop: days <-> undated + trash + auto month     */
-/* ===================================================== */
-
-/*
-const DND_MIME = "text/x-planner-task-id";
-let draggingId = null;
-
-function getDragIdFromEvent(e){
-  const dt = e.dataTransfer;
-  if (!dt) return null;
-  return dt.getData(DND_MIME) || dt.getData("text/plain") || null;
-}
-
-function clearDragOver(){
-  document.querySelectorAll(".dayCell.dragOver").forEach(n => n.classList.remove("dragOver"));
-  undatedBox?.classList.remove("dragOver");
-  trashDrop?.classList.remove("dragOver");
-}
-
-function setTaskDate(id, dateStr){
-  const t = findTask(id);
-  if (!t) return;
-
-  const next = dateStr || "";
-  if ((t.dueDate || "") === next) return;
-
-  updateTask(id, { dueDate: next });
-  refresh();
-  toast(next ? `Moved to ${next}` : "Moved to undated");
-}
-
-function deleteTaskByDrop(id){
-  const t = findTask(id);
-  if (!t) return;
-  deleteTask(id);
-  refresh();
-  toast("Task deleted", true);
-}
-
-//Start dragging from any chip (dated or undated) 
-function onDragStart(e){
-  const chip = e.target.closest("[data-drag-id]");
-  if (!chip) return;
-
-  draggingId = chip.dataset.dragId || "";
-  if (!draggingId) return;
-
-  e.dataTransfer.setData(DND_MIME, draggingId);
-  e.dataTransfer.setData("text/plain", draggingId);
-  e.dataTransfer.effectAllowed = "move";
-
-  chip.classList.add("isDragging");
-}
-
-function onDragEnd(){
-  draggingId = null;
-  document.querySelectorAll(".taskChip.isDragging").forEach(n => n.classList.remove("isDragging"));
-  clearDragOver();
-  stopAutoMonth();
-}
-
-// ---------- Auto month switching while dragging ---------
-let autoMonthTimer = null;
-let lastAutoMonthAt = 0;
-let pendingDir = 0;
-
-function stopAutoMonth(){
-  if (autoMonthTimer){
-    clearTimeout(autoMonthTimer);
-    autoMonthTimer = null;
-  }
-  pendingDir = 0;
-}
-
-function scheduleAutoMonth(dir){
-  const now = Date.now();
-  if (now - lastAutoMonthAt < 650) return;
-  if (pendingDir === dir && autoMonthTimer) return;
-
-  stopAutoMonth();
-  pendingDir = dir;
-
-  autoMonthTimer = setTimeout(() => {
-    lastAutoMonthAt = Date.now();
-    shiftMonthAnimated(dir);
-    clearDragOver();
-    pendingDir = 0;
-    autoMonthTimer = null;
-  }, 520);
-}
-
-// Drag over calendar: allow drop + highlight + edge auto month
-function onDragOverCalendar(e){
-  const cell = e.target.closest(".dayCell");
-  if (!cell) return;
-
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-
-  document.querySelectorAll(".dayCell.dragOver").forEach(n => {
-    if (n !== cell) n.classList.remove("dragOver");
-  });
-  cell.classList.add("dragOver");
-
-  const rect = calendarGrid.getBoundingClientRect();
-  const edge = 26;
-  if (e.clientX < rect.left + edge) scheduleAutoMonth(-1);
-  else if (e.clientX > rect.right - edge) scheduleAutoMonth(1);
-  else stopAutoMonth();
-}
-
-function onDropCalendar(e){
-  const cell = e.target.closest(".dayCell");
-  const dateStr = cell?.dataset?.date;
-  if (!dateStr) return;
-
-  e.preventDefault();
-  const id = getDragIdFromEvent(e) || draggingId;
-  if (!id) return;
-
-  clearDragOver();
-  stopAutoMonth();
-  setTaskDate(id, dateStr);
-}
-
-// Undated drop zone: make undated
-function onDragOverUndated(e){
-  if (!undatedBox) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-  undatedBox.classList.add("dragOver");
-}
-
-function onDropUndated(e){
-  if (!undatedBox) return;
-  e.preventDefault();
-  const id = getDragIdFromEvent(e) || draggingId;
-  if (!id) return;
-
-  clearDragOver();
-  stopAutoMonth();
-  setTaskDate(id, "");
-}
-
-// Trash drop zone: delete 
-function onDragOverTrash(e){
-  if (!trashDrop) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-  trashDrop.classList.add("dragOver");
-}
-
-function onDropTrash(e){
-  if (!trashDrop) return;
-  e.preventDefault();
-  const id = getDragIdFromEvent(e) || draggingId;
-  if (!id) return;
-
-  clearDragOver();
-  stopAutoMonth();
-  deleteTaskByDrop(id);
-}
-
-// Bind DnD listeners 
-calendarGrid.addEventListener("dragstart", onDragStart);
-calendarGrid.addEventListener("dragend", onDragEnd);
-calendarGrid.addEventListener("dragover", onDragOverCalendar);
-calendarGrid.addEventListener("drop", onDropCalendar);
-
-// Undated zone 
-if (undatedBox){
-  undatedBox.addEventListener("dragover", onDragOverUndated);
-  undatedBox.addEventListener("drop", onDropUndated);
-  undatedBox.addEventListener("dragleave", () => undatedBox.classList.remove("dragOver"));
-}
-
-// Undated list is also draggable source 
-if (undatedList){
-  undatedList.addEventListener("dragstart", onDragStart);
-  undatedList.addEventListener("dragend", onDragEnd);
-}
-
-// Trash zone 
-if (trashDrop){
-  trashDrop.addEventListener("dragover", onDragOverTrash);
-  trashDrop.addEventListener("drop", onDropTrash);
-  trashDrop.addEventListener("dragleave", () => trashDrop.classList.remove("dragOver"));
-}
-
-*/

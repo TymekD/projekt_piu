@@ -247,8 +247,6 @@ export function renderList(){
       </article>
     `;
   }).join("");
-
-  el("clearTodayBtn").disabled = !state.ui.todayOnly;
 }
 
 function gridStart(firstOfMonth){
@@ -295,7 +293,8 @@ export function renderCalendar(){
       const t = tasks[j];
       const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
       const dn = t.done ? "done" : "";
-      chips.push(`<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" title="Edit task">${E(t.title)}</button>`);
+      // Draggable so tasks can be moved between calendar days and the Undated box.
+      chips.push(`<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" draggable="true" title="Edit task">${E(t.title)}</button>`);
     }
     if (tasks.length > max) chips.push(`<div class="taskChip more">+${tasks.length-max} more</div>`);
 
@@ -317,12 +316,19 @@ export function renderCalendar(){
   const box = el("undatedBox");
   const list = el("undatedList");
   if (box && list){
-    box.hidden = undated.length === 0;
-    list.innerHTML = undated.map(t => {
-      const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
-      const dn = t.done ? "done" : "";
-      return `<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" title="Edit task">${E(t.title)}</button>`;
-    }).join("");
+    // Always show Undated box so the user can drop tasks here to remove their date.
+    // (When empty we show a small hint instead of hiding the whole drop zone.)
+    box.hidden = false;
+
+    if (undated.length === 0){
+      list.innerHTML = `<div class="muted undatedHint">Drag a task here to remove its date.</div>`;
+    } else {
+      list.innerHTML = undated.map(t => {
+        const pr = t.priority === "high" ? "high" : t.priority === "low" ? "low" : "";
+        const dn = t.done ? "done" : "";
+        return `<button class="taskChip ${pr} ${dn}" type="button" data-cal-id="${E(t.id)}" draggable="true" title="Edit task">${E(t.title)}</button>`;
+      }).join("");
+    }
   }
 }
 
