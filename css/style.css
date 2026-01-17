@@ -451,3 +451,32 @@ html[data-theme="dark"] select option{
     animation:none;
   }
 }
+
+/* ---------------- Public holidays (Nager.Date) ---------------- */
+.holidaysTop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.holidaysList{display:grid;gap:10px;padding:0;margin-top:12px}
+.holidayItem{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px 12px;
+  background:rgba(255,255,255,.02);
+}
+html[data-theme="light"] .holidayItem{background:rgba(17,24,39,.02)}
+.holidayName{font-weight:700}
+.holidayDate{font-size:12px;margin-top:2px}
+
+.holidayDay{
+  border-color:rgba(255,107,107,.40);
+  background:rgba(255,107,107,.05);
+}
+html[data-theme="light"] .holidayDay{background:rgba(220,38,38,.04)}
+.holidayBadge{
+  font-size:12px;
+  width:22px;
+  height:22px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  border:1px solid rgba(255,107,107,.45);
+  background:rgba(255,107,107,.10);
+}

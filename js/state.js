@@ -1,4 +1,4 @@
-import { loadItems, saveItems, loadSettings, saveSettings } from "./storage.js";
+import { loadItems, saveItems, loadSettings, saveSettings, loadHolidays, saveHolidays } from "./storage.js";
 
 function safeId() {
   if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -23,6 +23,12 @@ export const state = {
     sort: "date",
     todayOnly: false,
   },
+  holidays: {
+    country: "PL",
+    year: 0,
+    items: [],
+    byDate: {},
+  },
 };
 
 export function initState() {
@@ -36,6 +42,57 @@ export function initState() {
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   state.ui.calYM = `${yyyy}-${mm}`;
+
+  // Try to load cached holidays for current year (no network needed).
+  const cc = (state.holidays.country || "PL").toUpperCase();
+  const cached = loadHolidays(cc, yyyy);
+  if (cached?.items?.length){
+    setHolidays(yyyy, cc, cached.items, { skipPersist: true });
+  } else {
+    state.holidays.year = yyyy;
+  }
+}
+
+/* ---------- Holidays ---------- */
+export function setHolidays(year, countryCode, items, opts = {}){
+  const yy = Number(year);
+  const cc = String(countryCode || "PL").toUpperCase();
+  const arr = Array.isArray(items) ? items : [];
+
+  // Minimal normalize
+  const cleaned = arr
+    .filter(h => h && typeof h.date === "string")
+    .map(h => ({
+      date: h.date,
+      name: String(h.name || ""),
+      localName: String(h.localName || h.name || ""),
+    }));
+
+  const byDate = {};
+  for (const h of cleaned){
+    byDate[h.date] = { name: h.name, localName: h.localName };
+  }
+
+  state.holidays = {
+    country: cc,
+    year: Number.isFinite(yy) ? yy : new Date().getFullYear(),
+    items: cleaned,
+    byDate,
+  };
+
+  if (!opts.skipPersist){
+    saveHolidays(cc, state.holidays.year, cleaned);
+  }
+}
+
+export function getCalendarYear(){
+  const [yStr] = (state.ui.calYM || "").split("-");
+  const y = Number(yStr);
+  return Number.isFinite(y) ? y : new Date().getFullYear();
+}
+
+export function getHolidayByDate(dateStr){
+  return state.holidays?.byDate?.[dateStr] || null;
 }
 
 export function setView(view) {

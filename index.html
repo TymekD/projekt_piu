@@ -46,7 +46,10 @@
           <div class="muted statsText" id="statsText">No tasks yet. Add your first one.</div>
         </div>
 
-        <!-- ✅ Today + Clear removed -->
+        <div class="statsButtons">
+          <button id="todayBtn" class="btn ghostBtn" type="button">📅 Today</button>
+          <button id="clearTodayBtn" class="btn ghostBtn" type="button" disabled>✖ Clear</button>
+        </div>
       </div>
 
       <div class="progressBar" aria-label="Progress bar">
@@ -95,56 +98,69 @@
 
         <!-- Front face (List) -->
         <div class="flipFace flipFront" id="viewFront">
-          <section class="taskSection" aria-label="Task list" id="taskSection">
-            <div class="sectionTop">
-              <h2 class="sectionTitle">Your tasks</h2>
-              <div id="resultsInfo" class="muted"></div>
-            </div>
 
-            <div id="taskList" class="taskList" data-layout="grid"></div>
+    <!-- List -->
+    <section class="taskSection" aria-label="Task list" id="taskSection">
+      <div class="sectionTop">
+        <h2 class="sectionTitle">Your tasks</h2>
+        <div id="resultsInfo" class="muted"></div>
+      </div>
 
-            <div id="emptyState" class="emptyState" hidden>
-              <div class="emptyIcon" aria-hidden="true">🗂️</div>
-              <h3 class="emptyTitle">No tasks match your filters</h3>
-              <p class="muted">Try clearing search/tag filters or switch status to “All”.</p>
-            </div>
-          </section>
+      <div id="taskList" class="taskList" data-layout="grid"></div>
+
+      <div id="emptyState" class="emptyState" hidden>
+        <div class="emptyIcon" aria-hidden="true">🗂️</div>
+        <h3 class="emptyTitle">No tasks match your filters</h3>
+        <p class="muted">Try clearing search/tag filters or switch status to “All”.</p>
+      </div>
+    </section>
+
         </div>
 
         <!-- Back face (Calendar) -->
         <div class="flipFace flipBack" id="viewBack">
-          <section id="calendarView" class="card calendarCard" aria-label="Calendar view">
-            <div class="calendarTop">
-              <h2 id="monthLabel" class="calendarMonth">Month</h2>
 
-              <div class="calendarButtons" aria-label="Calendar controls">
-                <button id="prevMonthBtn" class="btn ghostBtn" type="button" aria-label="Previous month">‹</button>
-                <button id="nextMonthBtn" class="btn ghostBtn" type="button" aria-label="Next month">›</button>
+    <!-- Calendar -->
+    <section id="calendarView" class="card calendarCard" aria-label="Calendar view">
+      <div class="calendarTop">
+        <h2 id="monthLabel" class="calendarMonth">Month</h2>
+        <div class="calendarButtons" aria-label="Calendar controls">
+          <button id="prevMonthBtn" class="btn ghostBtn" type="button" aria-label="Previous month">‹</button>
+          <button id="nextMonthBtn" class="btn ghostBtn" type="button" aria-label="Next month">›</button>
+          <button id="calendarAddBtn" class="btn primaryBtn" type="button" aria-label="Add task">＋</button>
+        </div>
+      </div>
 
-                <div id="trashDrop" class="trashDrop" role="button" tabindex="0" aria-label="Trash (drop task to delete)" title="Drop here to delete">
-                  🗑
-                </div>
+      <div class="weekdays" aria-hidden="true">
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+      </div>
 
-                <button id="calendarAddBtn" class="btn primaryBtn" type="button" aria-label="Add task">＋</button>
-              </div>
-            </div>
+      <div id="calendarGrid" class="calendarGrid" role="grid" aria-label="Month grid"></div>
 
-            <div class="weekdays" aria-hidden="true">
-              <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-            </div>
+      <div id="undatedBox" class="undatedBox" hidden>
+        <div class="muted undatedTitle">Undated tasks</div>
+        <div id="undatedList" class="undatedList"></div>
+      </div>
+    </section>
 
-            <div id="calendarGrid" class="calendarGrid" role="grid" aria-label="Month grid"></div>
-
-            <div id="undatedBox" class="undatedBox">
-              <div class="muted undatedTitle">Undated tasks</div>
-              <div id="undatedHint" class="muted undatedHint">Drag tasks here to make them undated.</div>
-              <div id="undatedList" class="undatedList"></div>
-            </div>
-          </section>
         </div>
 
       </div>
     </div>
+
+    <!-- Public holidays (visible only in Calendar view) -->
+    <section id="holidaysCard" class="card holidaysCard" aria-label="Public holidays" hidden>
+      <div class="holidaysTop">
+        <div>
+          <h2 class="sectionTitle">Public holidays</h2>
+          <div id="holidaysSubtitle" class="muted">Public holidays · PL ·</div>
+        </div>
+
+        <button id="holidaysBtn" class="btn ghostBtn" type="button">🎉 Load holidays</button>
+      </div>
+
+      <div id="holidaysList" class="holidaysList"></div>
+    </section>
   </main>
 
   <!-- Modal -->
@@ -198,7 +214,10 @@
     </div>
   </div>
 
+  <!-- Tag suggestions (auto-filled from saved tasks) -->
   <datalist id="tagOptions"></datalist>
+
+  <!-- Toasts -->
   <div id="toastArea" class="toastArea" aria-live="polite" aria-atomic="true"></div>
 
   <script type="module" src="./js/main.js"></script>
